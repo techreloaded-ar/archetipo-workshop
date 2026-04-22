@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-TEMPLATE_REPO="https://github.com/techreloaded-ar/airchetipo-workshop.git"
-DEFAULT_DIR="airchetipo-workshop"
+TEMPLATE_REPO="https://github.com/techreloaded-ar/archetipo-workshop.git"
+DEFAULT_DIR="archetipo-workshop"
 
 echo ""
 echo "========================================="
-echo "  AIRchetipo Workshop — Setup"
+echo "  Archetipo Workshop — Setup"
 echo "========================================="
 echo ""
 
@@ -45,8 +45,8 @@ echo "Pushing to new remote..."
 git push -u origin main
 
 echo ""
-echo "Installing AIRchetipo skills..."
-curl -fsSL https://raw.githubusercontent.com/techreloaded-ar/AIRchetipo/main/install.sh | bash
+echo "Installing Archetipo skills..."
+curl -fsSL https://raw.githubusercontent.com/techreloaded-ar/Archetipo/main/install.sh | bash
 
 echo ""
 echo "Done! Your project is ready in './$PROJECT_DIR'"

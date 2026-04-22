@@ -1,4 +1,4 @@
-# AGENTS.md — AIRchetipo Workshop
+# AGENTS.md — Archetipo Workshop
 
 ## Stack
 - **Next.js 15** (App Router, `src/` directory, Turbopack dev)
@@ -95,11 +95,11 @@ const { data } = await supabase.storage.from("bucket").upload("path", file);
   - Select **Session Pooler** as connection method (not Direct — incompatible with IPv4)
   - Copy the connection string
 
-## AIRchetipo Skills — Boilerplate Constraints
+## Archetipo Skills — Boilerplate Constraints
 
-This project ships with a fully configured boilerplate. The skills `/airchetipo-inception` and `/airchetipo-backlog` **must** respect the existing implementation described above.
+This project ships with a fully configured boilerplate. The skills `/archetipo-inception` and `/archetipo-backlog` **must** respect the existing implementation described above.
 
-### Constraint for `airchetipo-inception` (Phase 2 — Technical Architecture)
+### Constraint for `archetipo-inception` (Phase 2 — Technical Architecture)
 
 When Leonardo (Architect) proposes the technical architecture:
 
@@ -113,7 +113,7 @@ When Leonardo (Architect) proposes the technical architecture:
 - **Additions are welcome** — Leonardo may propose new libraries, APIs, external services, or tools on top of the base stack, but must never replace or contradict it.
 - **Pre-fill** the Technology Stack table in the PRD with the boilerplate values listed above.
 
-### Constraint for `airchetipo-inception` and `airchetipo-backlog` (Requirements & Stories)
+### Constraint for `archetipo-inception` and `archetipo-backlog` (Requirements & Stories)
 
 The following features are **already implemented** in the boilerplate. Agents must not generate functional requirements or user stories that recreate them:
 

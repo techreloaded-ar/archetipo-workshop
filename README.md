@@ -1,6 +1,6 @@
-# AIRchetipo Workshop
+# Archetipo Workshop
 
-Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usando l'AI come copilota e il framework [AIRchetipo](https://github.com/techreloaded-ar/airchetipo) come guida metodologica. Il boilerplate di partenza include Next.js 15, Supabase (auth e storage), Prisma, Tailwind CSS v4 e shadcn/ui — tutto già configurato per permetterti di concentrarti sul prodotto, non sull'infrastruttura.
+Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usando l'AI come copilota e il framework [Archetipo](https://github.com/techreloaded-ar/archetipo) come guida metodologica. Il boilerplate di partenza include Next.js 15, Supabase (auth e storage), Prisma, Tailwind CSS v4 e shadcn/ui — tutto già configurato per permetterti di concentrarti sul prodotto, non sull'infrastruttura.
 
 ## Guida Setup (per partecipanti al workshop)
 
@@ -19,8 +19,8 @@ Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usa
 2. Clona la tua fork sulla tua macchina:
 
 ```bash
-git clone https://github.com/TUO-USERNAME/airchetipo-workshop.git
-cd airchetipo-workshop
+git clone https://github.com/TUO-USERNAME/archetipo-workshop.git
+cd archetipo-workshop
 ```
 
 #### Alternativa — Setup automatico con script
@@ -28,7 +28,7 @@ cd airchetipo-workshop
 Se preferisci non fare la fork manualmente, puoi usare lo script di setup che clona il repository e configura il tuo remote in un solo comando:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/techreloaded-ar/airchetipo-workshop/main/setup.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/techreloaded-ar/archetipo-workshop/main/setup.sh)
 ```
 
 Lo script ti chiederà:

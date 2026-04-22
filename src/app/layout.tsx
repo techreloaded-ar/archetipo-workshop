@@ -7,7 +7,7 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "AIRchetipo Workshop",
+  title: "Archetipo Workshop",
   description: "Next.js + Supabase + Prisma + Tailwind",
 };
 
