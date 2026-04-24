@@ -53,19 +53,23 @@ Al termine, il progetto sarà clonato e pushato sul tuo repository.
 
 1. Copia il file di esempio:
 
-```bash
-cp .env.local.example .env
-```
+    ```bash
+    cp .env.local.example .env
+    ```
 
-2. Clicca il pulsante **Connect** nella top bar di Supabase e inserisci i valori in `.env`:
+2. Clicca il pulsante **Connect** nella top bar di Supabase
 
-- nel tab **Connection String**:
-  1. Seleziona Type **URI**
-  2. **IMPORTANTE: seleziona Method → Session Pooler** (NON "Direct" — non funziona con IPv4)
-  3. Copia la connection string nella variabile `DATABASE_URL` in `.env`
+- nel tab **Frameworks** → seleziona **Next.js** →  copia i valori **`NEXT_PUBLIC_SUPABASE_URL`** e **`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`** in `.env`
+
+- nel tab **Direct Connection String**:
+  1. Seleziona 
+     - Connection Method: **Session Pooler**
+     - Type **URI**
+
+  2. Copia la connection string nella variabile `DATABASE_URL` in `.env`
 
 > **Attenzione**: nella connection string, sostituisci `[YOUR-PASSWORD]` con la password che hai scelto quando hai creato il progetto.
-- nel tab **App Frameworks** → seleziona **Next.js** →  copia i valori **`NEXT_PUBLIC_SUPABASE_URL`** e **`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`** in `.env`
+
 
 ---
 
@@ -124,7 +128,7 @@ curl -X POST http://localhost:3000/api/hello \
 ## Troubleshooting
 
 ### "Invalid API key" o errori di autenticazione
-- Verifica che `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` siano corretti in `.env.local`
+- Verifica che `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` siano corretti in `.env.local`
 - Assicurati di non avere spazi extra nei valori
 
 ### "Can't reach database server"
@@ -164,7 +168,7 @@ Prima di cliccare Deploy, aggiungi queste variabili nella sezione **Environment 
 |---|---|
 | `DATABASE_URL` | Connection string PostgreSQL (Session Pooler, porta 5432) |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del progetto Supabase |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Chiave pubblica Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Chiave pubblica Supabase |
 
 ### 4. Clicca Deploy
 
