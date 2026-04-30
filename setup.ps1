@@ -102,8 +102,7 @@ git push -u origin main
 
 # --- Copia .archetipo e skills ---
 
-$SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-$SKILLS_SRC = Join-Path $SCRIPT_DIR "skills"
+$SKILLS_SRC = Join-Path (Get-Location) "skills"
 $DEST          = Resolve-Path "."
 
 Write-Host ""
