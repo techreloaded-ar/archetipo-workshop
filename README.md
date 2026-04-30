@@ -2,6 +2,50 @@
 
 Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usando l'AI come copilota e il framework [Archetipo](https://github.com/techreloaded-ar/archetipo) come guida metodologica. Il boilerplate di partenza include Next.js 15, Supabase (auth e storage), Prisma, Tailwind CSS v4 e shadcn/ui — tutto già configurato per permetterti di concentrarti sul prodotto, non sull'infrastruttura.
 
+## Quickstart
+
+### 1. Installa ARchetipo-workshop
+
+Apri un terminale in una folder a piacimento e lancia
+
+**macOS / Linux**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/techreloaded-ar/archetipo-workshop/main/setup.sh | bash
+```
+
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/techreloaded-ar/archetipo-workshop/main/setup.ps1 | iex
+```
+
+---
+
+### 2. Configura le variabili d'ambiente
+
+Dopo aver installato ARchetipo-workhop, posizionati nella cartella del nuovo progetto ed esegui:
+
+```bash
+cp .env.local.example .env
+```
+
+Compila `.env` con i valori del tuo progetto Supabase (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `DATABASE_URL`).
+
+---
+
+### 3. Installa e avvia
+
+```bash
+npm install
+npm run db:push
+npm run dev
+```
+
+Apri [http://localhost:3000](http://localhost:3000).
+
+---
+
 ## Guida Setup (per partecipanti al workshop)
 
 ### Prerequisiti
