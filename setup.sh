@@ -120,7 +120,7 @@ for idx in "${SELECTED_INDICES[@]}"; do
     SKILLS_DEST="$DEST/${TOOL_PATHS[$idx]}"
     echo "Copia skills → $SKILLS_DEST  [${TOOL_NAMES[$idx]}]"
     mkdir -p "$SKILLS_DEST"
-    for skill_dir in "$SKILLS_SRC"/*/; do
+    for skill_dir in "$SKILLS_SRC"/*; do
         if [ -d "$skill_dir" ]; then
             cp -r "$skill_dir" "$SKILLS_DEST/"
         fi
@@ -140,7 +140,7 @@ echo "Remote origin: $REMOTE_URL"
 echo ""
 echo "Prossimi passi:"
 echo "  cd $PROJECT_DIR"
-echo "  cp .env.example .env.local  # configura le variabili d'ambiente"
+echo "  cp .env.example .env  # configura le variabili d'ambiente"
 echo "  npm install"
 echo "  npm run dev"
 echo ""
