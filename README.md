@@ -52,6 +52,7 @@ Apri [http://localhost:3000](http://localhost:3000).
 
 - **Node.js** v18+ installato ([nodejs.org](https://nodejs.org))
 - **Git** installato
+- **GitHub CLI** installata e autenticata (`gh auth login`)
 - Un account **GitHub** (per fare la fork e per il login OAuth)
 - Un account **Supabase** gratuito ([supabase.com](https://supabase.com))
 
