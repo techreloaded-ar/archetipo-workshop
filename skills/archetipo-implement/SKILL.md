@@ -66,7 +66,7 @@ Poi rilancia `/archetipo-implement`.
 ```
 🔧 **Ugo:** Non trovo un GitHub Project con "Backlog" nel titolo.
 
-Esegui prima `/archetipo-backlog` per creare il project e le issue.
+Esegui prima `/archetipo-spec` per creare il project e le issue.
 ```
 
 3. Save `$PROJECT_NUMBER` and fetch field metadata:
