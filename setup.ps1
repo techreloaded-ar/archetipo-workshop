@@ -33,6 +33,14 @@ $Tools = @(
     @{ Name = "GitHub Copilot"; SkillsPath = ".github\skills" }
 )
 
+$ArchetipoSkills = @(
+    "archetipo-design",
+    "archetipo-implement",
+    "archetipo-inception",
+    "archetipo-plan",
+    "archetipo-spec"
+)
+
 function Show-Menu {
     param([array]$Options)
     $selected = @($false) * $Options.Count
@@ -335,8 +343,13 @@ foreach ($tool in $selectedTools) {
     if (-not (Test-Path $skillsDest)) {
         New-Item -ItemType Directory -Path $skillsDest -Force | Out-Null
     }
-    Get-ChildItem -Path $SKILLS_SRC -Directory | ForEach-Object {
-        Copy-Item -Path $_.FullName -Destination (Join-Path $skillsDest $_.Name) -Recurse -Force
+    foreach ($skillName in $ArchetipoSkills) {
+        $skillPath = Join-Path $SKILLS_SRC $skillName
+        if (-not (Test-Path $skillPath)) {
+            Write-Error "Skill mancante: $skillName"
+            exit 1
+        }
+        Copy-Item -Path $skillPath -Destination (Join-Path $skillsDest $skillName) -Recurse -Force
     }
 }
 

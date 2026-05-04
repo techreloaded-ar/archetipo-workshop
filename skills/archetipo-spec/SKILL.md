@@ -1,6 +1,6 @@
 ---
 name: archetipo-spec
-description: Authoring guide and workflow for writing effective user stories on a GitHub Project v2 board. Operates in two auto-detected modes. BOOTSTRAP MODE (when the backlog is empty and a PRD exists in docs/PRD.md): reads the PRD, decomposes it into a full prioritized backlog of epics and user stories, and creates all GitHub Issues on the project board. EXTEND MODE (when the backlog already contains stories): takes the user's prompt, infers one or more new stories, reuses existing epics where possible, numbers from max(US-XXX)+1, and appends only the new issues. Requires `/archetipo-init` to have already configured the project (Status 5-state, Priority, Story Points, Epic fields) and written field IDs to `.archetipo/config.yaml`. Use this skill when the user wants to "create a backlog from the PRD", "add a user story", "extend the backlog", or "write a story for ...". Do not use for discovery/PRD writing (use /archetipo-inception), planning (use /archetipo-plan), or implementation (use /archetipo-implement).
+description: Authoring guide and workflow for writing effective user stories on a GitHub Project v2 board. Operates in two auto-detected modes. BOOTSTRAP MODE (when the backlog is empty and a PRD exists in docs/PRD.md): reads the PRD, decomposes it into a full prioritized backlog of epics and user stories, and creates all GitHub Issues on the project board. EXTEND MODE (when the backlog already contains stories): takes the user's prompt, infers one or more new stories, reuses existing epics where possible, numbers from max(US-XXX)+1, and appends only the new issues. Requires the setup script to have configured the project (Status 5-state, Priority, Story Points, Epic fields) and written field IDs to `.archetipo/config.yaml`. Use this skill when the user wants to "create a backlog from the PRD", "add a user story", "extend the backlog", or "write a story for ...". Do not use for discovery/PRD writing (use /archetipo-inception), planning (use /archetipo-plan), or implementation (use /archetipo-implement).
 ---
 
 # Archetipo - Spec Skill (GitHub Projects)
@@ -9,7 +9,7 @@ You are the facilitator of a **user story authoring** session assisted by two sp
 
 The bulk of this skill is the **Authoring Guide** — the rules that make a story effective (INVEST, SPIDR, vertical slicing, the `Demonstrates` field, the body template, the boilerplate skip list). Both modes apply the same Authoring Guide; only the entry point and the scope (full backlog vs incremental additions) differ.
 
-Project setup (Status 5-state, Priority, Story Points, Epic field, tracker label, cached IDs) is owned by `/archetipo-init`. This skill assumes that setup is done and reads `.archetipo/config.yaml` to find the IDs it needs.
+Project setup (Status 5-state, Priority, Story Points, Epic field, tracker label, cached IDs) is owned by the installer (`setup.sh` / `setup.ps1`). This skill assumes that setup is done and reads `.archetipo/config.yaml` to find the IDs it needs.
 
 ---
 
@@ -154,7 +154,7 @@ If the story extends a boilerplate feature, add as a final line: `**Extends boil
 
 #### Step 1 — Load `.archetipo/config.yaml`
 
-Required keys (all written by `/archetipo-init`):
+Required keys (all written by the setup script):
 
 ```yaml
 github:
@@ -173,7 +173,7 @@ If any required key is missing, **stop** and show:
 ```
 🔎 **Emanuele:** Configurazione Archetipo incompleta o assente.
 
-Esegui prima `/archetipo-init` per configurare il progetto GitHub e scrivere `.archetipo/config.yaml`,
+Esegui prima lo script di setup per configurare il progetto GitHub e scrivere `.archetipo/config.yaml`,
 poi rilancia `/archetipo-spec`.
 ```
 
@@ -476,9 +476,9 @@ Emanuele runs internally:
 
 **Extend mode, user prompt is too vague:** Ask one clarifying question (persona, observable benefit) before drafting. Do not invent personas or benefits.
 
-**Epic field still has the placeholder option from init:** drop `EP-000: placeholder` from the union when calling `updateProjectV2Field` in Phase 2 Step 1 (first bootstrap run only).
+**Epic field still has the placeholder option from setup:** drop `EP-000: placeholder` from the union when calling `updateProjectV2Field` in Phase 2 Step 1 (first bootstrap run only).
 
-**Field IDs in config no longer valid (project recreated, options rewritten outside Archetipo):** stop and tell the user to re-run `/archetipo-init`.
+**Field IDs in config no longer valid (project recreated, options rewritten outside Archetipo):** stop and tell the user to re-run the setup script.
 
 ---
 
@@ -487,4 +487,4 @@ Emanuele runs internally:
 - Run gh commands **sequentially**, one story at a time. No parallel tool calls.
 - Use `-L 200` with `gh project item-list` to avoid the default 30-item cap.
 - The `updateProjectV2Field` mutation **replaces all options** — always pass the full set when adding new epic options.
-- Never modify files outside the issues themselves. Config is read-only here; init owns it.
+- Never modify files outside the issues themselves. Config is read-only here; setup owns it.

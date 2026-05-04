@@ -46,7 +46,7 @@ If the file is missing or any required key is unset, **stop**:
 ```
 🔧 **Ugo:** Configurazione Archetipo incompleta o assente.
 
-Esegui prima `/archetipo-init` per configurare il GitHub Project e scrivere
+Esegui prima lo script di setup per configurare il GitHub Project e scrivere
 `.archetipo/config.yaml`, poi rilancia `/archetipo-implement`.
 ```
 
@@ -58,7 +58,7 @@ From the config, hold the following values for use in later steps (binding mecha
 - `<SP_FIELD_ID>`
 - `<EPIC_FIELD_ID>`
 
-> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by `/archetipo-init`. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run `/archetipo-init`.
+> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by the setup script. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run the setup script.
 
 #### Step 2 — Fetch and filter items
 
@@ -465,7 +465,7 @@ Project number, project node ID, field IDs, and option IDs all come from `.arche
 gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
 ```
 
-Always use `--format json` for machine-parseable output. If field/option IDs in the config no longer match the live project, stop and ask the user to re-run `/archetipo-init`.
+Always use `--format json` for machine-parseable output. If field/option IDs in the config no longer match the live project, stop and ask the user to re-run the setup script.
 
 ### Item List Limit
 

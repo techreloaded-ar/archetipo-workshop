@@ -47,7 +47,7 @@ If the file is missing or any required key is unset, **stop**:
 ```
 🔎 **Emanuele:** Configurazione Archetipo incompleta o assente.
 
-Esegui prima `/archetipo-init` per configurare il GitHub Project e scrivere
+Esegui prima lo script di setup per configurare il GitHub Project e scrivere
 `.archetipo/config.yaml`, poi rilancia `/archetipo-plan`.
 ```
 
@@ -67,7 +67,7 @@ gh repo view --json name
 
 Hold the returned `name` as `<REPO>` — required by the `sub_issues` REST endpoint in Phase 5.
 
-> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by `/archetipo-init`. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run `/archetipo-init`.
+> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by the setup script. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run the setup script.
 
 #### Step 2 — Fetch and filter items
 
@@ -626,7 +626,7 @@ Project number, project node ID, field IDs, and option IDs all come from `.arche
 gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
 ```
 
-If field/option IDs in the config no longer match the live project (project recreated, options rewritten outside Archetipo), stop and ask the user to re-run `/archetipo-init`.
+If field/option IDs in the config no longer match the live project (project recreated, options rewritten outside Archetipo), stop and ask the user to re-run the setup script.
 
 ### Item List Limit
 

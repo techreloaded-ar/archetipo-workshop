@@ -6,6 +6,7 @@ DEFAULT_DIR="archetipo-workshop"
 
 TOOL_NAMES=("Claude Code" "Codex" "Gemini CLI" "OpenCode" "GitHub Copilot")
 TOOL_PATHS=(".claude/skills" ".agents/skills" ".gemini/skills" ".opencode/skills" ".github/skills")
+ARCHETIPO_SKILLS=("archetipo-design" "archetipo-implement" "archetipo-inception" "archetipo-plan" "archetipo-spec")
 
 echo ""
 echo "========================================="
@@ -318,9 +319,13 @@ for idx in "${SELECTED_INDICES[@]}"; do
     SKILLS_DEST="$DEST/${TOOL_PATHS[$idx]}"
     echo "Copia skills → $SKILLS_DEST  [${TOOL_NAMES[$idx]}]"
     mkdir -p "$SKILLS_DEST"
-    for skill_dir in "$SKILLS_SRC"/*; do
+    for skill_name in "${ARCHETIPO_SKILLS[@]}"; do
+        skill_dir="$SKILLS_SRC/$skill_name"
         if [ -d "$skill_dir" ]; then
             cp -r "$skill_dir" "$SKILLS_DEST/"
+        else
+            echo "Errore: skill mancante: $skill_name"
+            exit 1
         fi
     done
 done
