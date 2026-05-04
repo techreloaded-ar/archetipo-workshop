@@ -191,21 +191,27 @@ bootstrap_github_project() {
     fi
 
     echo "Configuro Status: Todo, Planned, In Progress, Review, Done"
-    gh api graphql \
-        -f query='
-          mutation($f:ID!,$opts:[ProjectV2SingleSelectFieldOptionInput!]!){
-            updateProjectV2Field(input:{fieldId:$f, singleSelectOptions:$opts}){
-              projectV2Field { ... on ProjectV2SingleSelectField { id options { id name } } }
-            }
-          }' \
-        -f f="$status_field_id" \
-        -f opts='[
-          {"name":"Todo","color":"GRAY","description":""},
-          {"name":"Planned","color":"BLUE","description":""},
-          {"name":"In Progress","color":"YELLOW","description":""},
-          {"name":"Review","color":"PURPLE","description":""},
-          {"name":"Done","color":"GREEN","description":""}
-        ]' > /dev/null
+    status_query='
+mutation {
+  updateProjectV2Field(input: {
+    fieldId: "__FIELD_ID__",
+    singleSelectOptions: [
+      {name: "Todo",        color: GRAY,   description: ""},
+      {name: "Planned",     color: BLUE,   description: ""},
+      {name: "In Progress", color: YELLOW, description: ""},
+      {name: "Review",      color: PURPLE, description: ""},
+      {name: "Done",        color: GREEN,  description: ""}
+    ]
+  }) {
+    projectV2Field {
+      ... on ProjectV2SingleSelectField { id options { id name } }
+    }
+  }
+}
+'
+    status_query="${status_query/__FIELD_ID__/$status_field_id}"
+
+    gh api graphql -f query="$status_query" > /dev/null
 
     priority_field_id="$(ensure_project_field "$project_number" "$owner" "Priority" "SINGLE_SELECT" --data-type SINGLE_SELECT --single-select-options "HIGH,MEDIUM,LOW")"
     story_points_field_id="$(ensure_project_field "$project_number" "$owner" "Story Points" "NUMBER" --data-type NUMBER)"
