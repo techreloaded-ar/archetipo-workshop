@@ -1,6 +1,6 @@
 ---
 name: archetipo-plan
-description: Plans the implementation of a user story from a GitHub Project v2 board. Fetches Todo issues from the project, selects the target story (passed as argument or auto-selected by priority), and orchestrates a virtual team (Architect, Analyst, Developer, Test Architect) to produce a detailed technical implementation plan saved in docs/planning/{US-CODE}.md. Creates GitHub sub-issues for each technical task and links them to the parent story via tasklist. Updates the issue body with the plan link, adds the "planned" label, and moves the Status to "Planned". Use this skill instead of archetipo-plan when your backlog lives on GitHub Projects.
+description: Plans the implementation of a user story from a GitHub Project v2 board. Fetches Todo issues from the project, selects the target story (passed as argument or auto-selected by priority), and orchestrates a virtual team (Architect, Analyst, Developer, Test Architect) to produce a detailed technical implementation plan saved in docs/planning/{US-CODE}.md. Creates real GitHub sub-issues for each technical task linked to the parent story via the native sub_issues API. Updates the issue body with the plan link, adds the "planned" label, and moves the Status to "Planned". Use this skill instead of archetipo-plan when your backlog lives on GitHub Projects.
 ---
 
 # Archetipo - User Story Planning Skill (GitHub Projects)
@@ -32,11 +32,12 @@ Upon activation:
 
 #### Step 1 — Auth check & owner detection
 
-1. Detect repository owner:
+1. Detect repository owner and name:
    ```bash
    gh repo view --json owner --jq '.owner.login'
+   gh repo view --json name --jq '.name'
    ```
-   Save as `$OWNER`.
+   Save as `$OWNER` and `$REPO`. `$REPO` is required by the `sub_issues` API endpoint in Phase 5.
 
 2. Test GitHub Projects auth:
    ```bash
@@ -67,7 +68,7 @@ Poi rilancia `/archetipo-plan`.
 ```
 🔎 **Emanuele:** Non trovo un GitHub Project con "Backlog" nel titolo.
 
-Esegui prima `/archetipo-backlog` per creare il project e le issue.
+Esegui prima `/archetipo-spec` per creare il project e le issue.
 ```
 
 3. Save `$PROJECT_NUMBER` and fetch field metadata:
@@ -432,9 +433,11 @@ Read the labels from the parent issue (fetched in Phase 0, Step 4). Identify the
 gh label create "subtask" --description "Technical subtask of a user story" --color "C2E0C6" --force
 ```
 
-#### Step 3 — Create sub-issues for each TASK
+#### Step 3 — Create sub-issues for each TASK and link them to the parent
 
-For each TASK-XX defined in the implementation plan, create a GitHub issue:
+For each TASK-XX defined in the implementation plan, perform these three sub-steps **in order**:
+
+**3.a — Create the child issue:**
 
 ```bash
 gh issue create \
@@ -468,18 +471,41 @@ TASKEOF
 )"
 ```
 
-Save the created issue number for each sub-issue. Collect all numbers into a list (e.g., `$SUB_ISSUES="123 124 125 ..."`).
+Capture the returned URL/number as `<CHILD_NUM>`.
 
-**Important:** Create sub-issues in TASK order (TASK-01 first, then TASK-02, etc.) to maintain logical ordering.
+**3.b — Retrieve the child's database id (numeric, NOT the GraphQL node id):**
 
-#### Step 4 — Update the parent issue body
+```bash
+gh api repos/$OWNER/$REPO/issues/<CHILD_NUM> --jq .id
+```
+
+Save as `<CHILD_DATABASE_ID>`.
+
+**3.c — Link the child as a native sub-issue of the parent story:**
+
+```bash
+gh api -X POST \
+  repos/$OWNER/$REPO/issues/<PARENT_ISSUE_NUMBER>/sub_issues \
+  -F sub_issue_id=<CHILD_DATABASE_ID> \
+  -H "X-GitHub-Api-Version: 2022-11-28"
+```
+
+After this call, the parent issue page will show the child under the native **"Sub-issues"** section, and the child will display "Tracked in #N".
+
+**Critical:** `sub_issue_id` requires the issue's **database id (numeric)** returned by the REST API — confusing it with the GraphQL node id (`I_kwDO...`) is the most common cause of `422 Unprocessable Entity`.
+
+Collect all `<CHILD_NUM>` values into `$SUB_ISSUES` for the final summary. Create sub-issues in TASK order (TASK-01 first, then TASK-02, etc.) so the GitHub UI lists them in logical order.
+
+#### Step 4 — Update the parent issue body with a pointer to the plan
+
+Sub-issues are already linked natively (Step 3.c). Do **not** add a `[tasklist]` block — it would duplicate the native "Sub-issues" panel. Just append a pointer to the planning document.
 
 1. Read the current body:
    ```bash
    gh issue view <NUMBER> --json body --jq '.body'
    ```
 
-2. Build the updated body by appending the plan section and a tasklist block. The tasklist block uses GitHub's special fenced code syntax to create trackable sub-issue checkboxes:
+2. Build the updated body:
 
    ```bash
    UPDATED_BODY=$(cat <<BODYEOF
@@ -495,12 +521,7 @@ Save the created issue number for each sub-issue. Collect all numbers into a lis
    - Task totali: {N} ({N} implementazione + {N} test)
    - Effort stimato: {total}
 
-   \`\`\`[tasklist]
-   ### Technical Tasks
-   - [ ] #{sub_issue_1}
-   - [ ] #{sub_issue_2}
-   - [ ] #{sub_issue_3}
-   \`\`\`
+   I task sono linkati come sub-issue native (vedi sezione "Sub-issues" sopra).
 
    _Generato da Archetipo Planning Team_
    BODYEOF
@@ -512,10 +533,7 @@ Save the created issue number for each sub-issue. Collect all numbers into a lis
    gh issue edit <NUMBER> --body "$UPDATED_BODY"
    ```
 
-**Critical notes:**
-- The tasklist fenced block MUST use exactly `` ```[tasklist] `` as the info string for GitHub to render it as trackable tasks
-- Sub-issues must be created BEFORE this step (Step 3) because their issue numbers are needed for the tasklist
-- Use heredoc to handle newlines and backticks properly in shell
+**Note:** The native sub-issues relation requires the database id (numeric) in the `sub_issues` endpoint, not the GraphQL node id. See Step 3.b/3.c.
 
 #### Step 5 — Add `planned` label and move Status to "Planned"
 
@@ -537,7 +555,7 @@ To get the `<ITEM_ID>`, search the project items fetched in Phase 0, Step 3 for 
 ✅ Pianificazione completata!
 
 📁 docs/planning/{US-CODE}.md
-🔗 Issue: #NN — body aggiornato con link al piano e tasklist
+🔗 Issue: #NN — body aggiornato con link al piano; sub-issue native linkate
 
 📋 Sub-issues create: {N}
 {list each: - #NNN TASK-XX: {title}}
