@@ -1,13 +1,15 @@
 ---
 name: archetipo-spec
-description: Authoring guide and workflow for writing effective user stories on a GitHub Project v2 board. Operates in two auto-detected modes. BOOTSTRAP MODE (when the backlog is empty and a PRD exists in docs/PRD.md): reads the PRD, decomposes it into a full prioritized backlog of epics and user stories, sets up the project board (5-state Status field, Priority, Story Points, Epic custom fields), and creates all GitHub Issues. EXTEND MODE (when the backlog already contains stories): takes the user's prompt, infers one or more new stories, reuses existing epics where possible, numbers from max(US-XXX)+1, and appends only the new issues. Use this skill when the user wants to "create a backlog from the PRD", "add a user story", "extend the backlog", or "write a story for ...". Do not use for discovery/PRD writing (use /archetipo-inception), planning (use /archetipo-plan), or implementation (use /archetipo-implement).
+description: Authoring guide and workflow for writing effective user stories on a GitHub Project v2 board. Operates in two auto-detected modes. BOOTSTRAP MODE (when the backlog is empty and a PRD exists in docs/PRD.md): reads the PRD, decomposes it into a full prioritized backlog of epics and user stories, and creates all GitHub Issues on the project board. EXTEND MODE (when the backlog already contains stories): takes the user's prompt, infers one or more new stories, reuses existing epics where possible, numbers from max(US-XXX)+1, and appends only the new issues. Requires `/archetipo-init` to have already configured the project (Status 5-state, Priority, Story Points, Epic fields) and written field IDs to `.archetipo/config.yaml`. Use this skill when the user wants to "create a backlog from the PRD", "add a user story", "extend the backlog", or "write a story for ...". Do not use for discovery/PRD writing (use /archetipo-inception), planning (use /archetipo-plan), or implementation (use /archetipo-implement).
 ---
 
 # Archetipo - Spec Skill (GitHub Projects)
 
-You are the facilitator of a **user story authoring** session assisted by two specialized agents. The skill produces well-formed GitHub Issues organized on a **GitHub Project v2** board, in two modes that are auto-detected at the start of the session.
+You are the facilitator of a **user story authoring** session assisted by two specialized agents. The skill produces well-formed GitHub Issues organized on a **GitHub Project v2** board, in two modes auto-detected at the start of the session.
 
 The bulk of this skill is the **Authoring Guide** — the rules that make a story effective (INVEST, SPIDR, vertical slicing, the `Demonstrates` field, the body template, the boilerplate skip list). Both modes apply the same Authoring Guide; only the entry point and the scope (full backlog vs incremental additions) differ.
+
+Project setup (Status 5-state, Priority, Story Points, Epic field, tracker label, cached IDs) is owned by `/archetipo-init`. This skill assumes that setup is done and reads `.archetipo/config.yaml` to find the IDs it needs.
 
 ---
 
@@ -113,7 +115,7 @@ If a story **extends** an existing boilerplate feature (e.g., "add profile editi
 
 ### Story body template
 
-This is the markdown body posted to the GitHub Issue. Use it verbatim, replacing `[…]` placeholders.
+Markdown body posted to the GitHub Issue. Use verbatim, replacing `[…]` placeholders.
 
 ```markdown
 ## Story
@@ -148,66 +150,51 @@ If the story extends a boilerplate feature, add as a final line: `**Extends boil
 
 ## Workflow
 
-### PHASE 0 — Auth, Config, and Mode Detection
+### PHASE 0 — Config load and Mode Detection
 
-#### Step 1 — Detect owner & verify auth
+#### Step 1 — Load `.archetipo/config.yaml`
 
-1. Detect repository owner:
-   ```bash
-   gh repo view --json owner --jq '.owner.login'
-   ```
-   Save as `$OWNER`.
+Required keys (all written by `/archetipo-init`):
 
-2. Test GitHub Projects auth:
-   ```bash
-   gh project list --owner "$OWNER" --limit 1 --format json
-   ```
-   If this fails with a scope/permission error, show this message and **stop**:
-
-```
-🔎 **Emanuele:** Non ho i permessi necessari per accedere ai GitHub Projects.
-
-Esegui questo comando per abilitare lo scope necessario:
-\`\`\`
-gh auth refresh -s read:project -s project
-\`\`\`
-
-Poi rilancia `/archetipo-spec`.
-```
-
-#### Step 2 — Load or create `.archetipo/config.yaml`
-
-Schema:
 ```yaml
 github:
   owner: <login>
   project_number: <N>
+  project_node_id: <PVT_kw...>
+  fields:
+    status: { id, options: { todo, planned, in_progress, review, done } }
+    priority: { id, options: { high, medium, low } }
+    story_points: { id }
+    epic: { id }
 ```
 
-If the file is missing:
-1. Run `gh project list --owner "$OWNER" --format json` and present the projects to the user.
-2. Ask which project to use (number). If none fits, propose to create one named `<repo-name> Backlog` via `gh project create --owner "$OWNER" --title "<repo-name> Backlog"`.
-3. Show the resolved values and ask for confirmation.
-4. After confirmation, write `.archetipo/config.yaml` with the two fields.
+If any required key is missing, **stop** and show:
 
-In the rest of the flow, refer to `$OWNER` and `$PN` (project number).
+```
+🔎 **Emanuele:** Configurazione Archetipo incompleta o assente.
 
-#### Step 3 — Mode detection
+Esegui prima `/archetipo-init` per configurare il progetto GitHub e scrivere `.archetipo/config.yaml`,
+poi rilancia `/archetipo-spec`.
+```
 
-1. Count existing stories on the project:
+Bind: `$OWNER`, `$PN`, `$PROJECT_NODE_ID`, `$STATUS_FIELD_ID`, `$TODO_OPTION_ID`, `$PRIORITY_FIELD_ID`, `$PRIORITY_*_OPTION_ID`, `$SP_FIELD_ID`, `$EPIC_FIELD_ID`.
+
+#### Step 2 — Mode detection
+
+1. Count existing stories:
    ```bash
    gh issue list --label "archetipo-spec" --state all --json number --limit 1 --jq 'length'
    ```
    Save as `$STORY_COUNT`.
 
-2. Check for `docs/PRD.md` (use `Read`; if not found, use glob `docs/*.md` for any file whose name suggests a PRD).
+2. Check for `docs/PRD.md` (use `Read`; if not found, glob `docs/*.md` for any file whose name suggests a PRD).
 
-3. Decide the mode:
-   - **Override always wins.** If the user prompt explicitly says "from the PRD", "bootstrap", "ricrea da PRD" → **bootstrap**. If the user prompt explicitly says "add a story", "extend", "aggiungi", "nuova storia per …" → **extend**.
+3. Decide:
+   - **Override always wins.** Prompt says "from the PRD", "bootstrap", "ricrea da PRD" → **bootstrap**. Prompt says "add a story", "extend", "aggiungi", "nuova storia per …" → **extend**.
    - Otherwise, auto-detect:
      - `STORY_COUNT == 0` AND PRD exists → **bootstrap**.
      - `STORY_COUNT > 0` → **extend**.
-     - `STORY_COUNT == 0` AND no PRD AND no story-like prompt → stop and show:
+     - `STORY_COUNT == 0` AND no PRD AND no story-like prompt → stop:
 
        ```
        🔎 **Emanuele:** Il backlog è vuoto e non trovo un PRD in docs/.
@@ -215,20 +202,20 @@ In the rest of the flow, refer to `$OWNER` and `$PN` (project number).
        oppure dimmi direttamente la storia che vuoi aggiungere e la creo io.
        ```
 
-4. If extend mode is chosen but the user prompt is empty or generic, ask:
+4. If extend mode but prompt is empty/generic, ask:
    ```
    🔎 **Emanuele:** Sono in modalità extend (backlog con $STORY_COUNT storie esistenti).
    Cosa vuoi aggiungere? Descrivi la nuova capability o incolla una storia in formato libero.
    ```
 
-5. If bootstrap is chosen but the backlog is non-empty, warn the user before proceeding:
+5. If bootstrap chosen but backlog non-empty, warn:
    ```
    ⚠️ Sto per ricreare il backlog dal PRD ma trovo già $STORY_COUNT storie esistenti.
    Le nuove issue verranno aggiunte in coda (numerazione US-XXX continua). Procedere?
    ```
    Default to **extend** unless the user explicitly confirms a full re-bootstrap.
 
-#### Step 4 — Announce startup
+#### Step 3 — Announce startup
 
 ```
 📋 ARCHETIPO - SPEC (GitHub Projects)
@@ -244,7 +231,7 @@ PRD: [path or "n/a (extend mode)"]
 
 ### PHASE 1A — Bootstrap path (PRD → full backlog)
 
-Skip this phase entirely in extend mode.
+Skip in extend mode.
 
 #### Step 1 — PRD analysis (Emanuele)
 
@@ -255,7 +242,7 @@ Read the PRD fully. Silently extract:
 - MVP scope, growth features, vision features.
 - All functional requirements (FRs) and non-functional requirements (NFRs) that affect scope.
 
-Ask the user **only if all** of these are true: (a) the missing info is critical to producing correct stories; (b) it cannot be reasonably inferred from the rest of the PRD. Cap at 3 questions, grouped in a single message:
+Ask the user **only if all** of these are true: (a) the missing info is critical to producing correct stories; (b) it cannot be reasonably inferred from the rest of the PRD. Cap at 3 questions, single message:
 
 ```
 🔎 **Emanuele:** Prima di iniziare, alcune domande che il PRD non chiarisce:
@@ -278,7 +265,7 @@ Validate that the epic list covers MVP scope. Do not output epic-validation chat
 
 #### Step 3 — Story generation (Emanuele)
 
-For each epic, generate vertical user stories applying the **Authoring Guide** above. Skip anything covered by the boilerplate skip list. Order stories within each epic by demonstrable incrementality (each story adds visible value on top of the previous one).
+For each epic, generate vertical user stories applying the **Authoring Guide** above. Skip anything covered by the boilerplate skip list. Order stories within each epic by demonstrable incrementality.
 
 #### Step 4 — Prioritization (Andrea)
 
@@ -290,8 +277,6 @@ Assign priority to each story:
 | **MEDIUM** | MVP scope but not blocking + or Growth feature with strategic value |
 | **LOW** | Nice-to-have + Vision + low impact |
 
-Emanuele validates ordering with three checks: dependency, increment, standalone. (See Authoring Guide.)
-
 #### Step 5 — Plan review
 
 Show a recap table to the user (epics + per-epic story count + priority breakdown + total SP) and **wait for confirmation** before any GitHub write.
@@ -300,7 +285,7 @@ Show a recap table to the user (epics + per-epic story count + priority breakdow
 
 ### PHASE 1B — Extend path (user prompt → 1+ new stories)
 
-Skip this phase entirely in bootstrap mode.
+Skip in bootstrap mode.
 
 #### Step 1 — Read the existing backlog (Emanuele)
 
@@ -316,13 +301,13 @@ From the result extract:
 #### Step 2 — Derive new stories from the user prompt (Emanuele)
 
 From the prompt, decide:
-- How many distinct stories the request implies (1 is common; if the prompt covers a multi-step capability, propose multiple stories rather than a single oversized one).
-- For each story, which existing epic it fits into. If none fits, propose a **new epic** with the next sequential `EP-XXX` ID and explain why it doesn't fit any existing one.
-- Apply the **Authoring Guide** in full (INVEST, SPIDR if oversized, vertical slicing, Demonstrates rules, boilerplate skip list).
+- How many distinct stories the request implies.
+- Which existing epic each story fits into. If none fits, propose a **new epic** with the next sequential `EP-XXX` ID.
+- Apply the **Authoring Guide** in full.
 
 #### Step 3 — Propose to the user
 
-Show, for each candidate story:
+For each candidate story:
 
 ```
 US-NNN — [title]
@@ -339,27 +324,19 @@ Acceptance Criteria:
 - [criterion 3]
 ```
 
-Ask for confirmation. The user may edit titles, ACs, SP, priority, or epic assignment before creation. Andrea fixes Priority based on the user's adjustments.
+Ask for confirmation. The user may edit titles, ACs, SP, priority, or epic assignment before creation.
 
 ---
 
-### PHASE 2 — Project setup (Status field 5 states + custom fields)
+### PHASE 2 — Issue creation (shared)
 
-This phase is **idempotent**. Run it in both modes; skip individual operations whose output already matches the expected state.
+Iterate over: bootstrap = full plan in priority order (HIGH → MEDIUM → LOW); extend = user-confirmed new stories.
 
-#### Step 1 — Status field with 5 options
+#### Step 1 — Sync Epic field options
 
-The Archetipo flow requires `Todo / Planned / In Progress / Review / Done`. The GitHub default is `Todo / In Progress / Done`.
+Compute the union of (epic options currently on the project) ∪ (epics referenced in the stories about to be created). For each new epic:
 
-1. Read fields:
-   ```bash
-   gh project field-list $PN --owner "$OWNER" --format json
-   ```
-   Locate the `Status` field. Save `STATUS_FIELD_ID` and the current option list.
-
-2. Compare with the 5 expected states (case-insensitive). If exactly matching, **skip**.
-
-3. Otherwise, **show the user** the current state vs target, ask for confirmation (the mutation below **replaces all options**, so existing IDs change), then run:
+1. Add an option `EP-XXX: [Epic Title]` to the Epic single-select field. Use `updateProjectV2Field` (replaces all options — pass the full union):
 
    ```bash
    gh api graphql -f query='
@@ -368,61 +345,20 @@ The Archetipo flow requires `Todo / Planned / In Progress / Review / Done`. The 
          projectV2Field { ... on ProjectV2SingleSelectField { id options { id name } } }
        }
      }' \
-     -f f=$STATUS_FIELD_ID \
-     -f opts='[
-       {"name":"Todo","color":"GRAY","description":""},
-       {"name":"Planned","color":"BLUE","description":""},
-       {"name":"In Progress","color":"YELLOW","description":""},
-       {"name":"Review","color":"PURPLE","description":""},
-       {"name":"Done","color":"GREEN","description":""}
-     ]'
+     -f f="$EPIC_FIELD_ID" \
+     -f opts='[ {"name":"EP-001: ...","color":"GRAY","description":""}, ... ]'
    ```
 
-4. Save the new option IDs from the response — they're used in `archetipo-plan` and `archetipo-implement`.
+2. Read the response and cache `EP-XXX → option_id` for Step 4 below.
 
-> ⚠️ Use `-f` (string) for GraphQL variables — `-F` of `gh api` infers GraphQL types and fails with `argumentLiteralsIncompatible` on arbitrary strings.
+3. Create or update the matching repo label (idempotent):
+   ```bash
+   gh label create "EP-XXX: [Epic Title]" --description "Epic XXX" --color C0C0C0 --force
+   ```
 
-#### Step 2 — Verify / create custom fields
+> ⚠️ Use `-f` (string) for GraphQL variables. The `updateProjectV2Field` mutation **replaces all options** — always pass the full set.
 
-From `gh project field-list $PN --owner "$OWNER" --format json` ensure these exist:
-
-- **Priority** (SINGLE_SELECT): `HIGH`, `MEDIUM`, `LOW`.
-  ```bash
-  gh project field-create $PN --owner "$OWNER" --name "Priority" --data-type SINGLE_SELECT --single-select-options "HIGH,MEDIUM,LOW"
-  ```
-- **Story Points** (NUMBER).
-  ```bash
-  gh project field-create $PN --owner "$OWNER" --name "Story Points" --data-type NUMBER
-  ```
-- **Epic** (SINGLE_SELECT): one option per known epic (`EP-XXX: Title`). In bootstrap mode, create the field after Phase 1A with all options at once. In extend mode, if the field exists, update it via `updateProjectV2Field` to add any new epic options while preserving existing ones; if the field doesn't exist (legacy backlog), create it now with the union of existing + new epics.
-
-Save field IDs and option IDs — they're used in Phase 3.
-
----
-
-### PHASE 3 — Issue creation (shared)
-
-Run this for every story to create. In bootstrap mode, iterate over the full plan from Phase 1A in priority order (HIGH → MEDIUM → LOW). In extend mode, iterate over the user-confirmed new stories from Phase 1B.
-
-#### Step 1 — Create labels (idempotent, `--force`)
-
-Tracking label:
-```bash
-gh label create "archetipo-spec" --description "Story generated by /archetipo-spec" --color 0E8A16 --force
-```
-
-For each new epic (any `EP-XXX` not already a label):
-```bash
-gh label create "EP-XXX: [Epic Title]" --description "Epic XXX" --color C0C0C0 --force
-```
-
-#### Step 2 — Get the project node ID once
-
-```bash
-PROJECT_NODE_ID=$(gh project view $PN --owner "$OWNER" --format json --jq .id)
-```
-
-#### Step 3 — Create the issue
+#### Step 2 — Create the issue
 
 ```bash
 gh issue create \
@@ -430,70 +366,46 @@ gh issue create \
   --label "archetipo-spec" \
   --label "EP-XXX: [Epic Title]" \
   --body "$(cat <<'EOF'
-## Story
-
-As [persona],
-I want [action],
-so that [benefit].
-
-## Demonstrates
-
-[observable demo]
-
-## Acceptance Criteria
-
-- [ ] [criterion 1]
-- [ ] [criterion 2]
-- [ ] [criterion 3]
-
----
-
-**Epic:** EP-XXX — [Epic Title]
-**Priority:** HIGH | **Story Points:** N
-**Blocked by:** -
-**Scope:** MVP
-
-_Created by /archetipo-spec_
+[Story body — see template in the Authoring Guide]
 EOF
 )"
 ```
 
-#### Step 4 — Add to the project board
+Capture the issue number returned.
+
+#### Step 3 — Add to the project board
 
 ```bash
 ISSUE_NODE_ID=$(gh issue view <NUMBER> --json id --jq .id)
 gh api graphql -f query='mutation($p:ID!,$c:ID!){addProjectV2ItemById(input:{projectId:$p,contentId:$c}){item{id}}}' \
-  -F p=$PROJECT_NODE_ID -F c=$ISSUE_NODE_ID
+  -F p="$PROJECT_NODE_ID" -F c="$ISSUE_NODE_ID"
 ```
 
-Save the returned `item.id` as `ITEM_ID`.
+Save the returned `item.id` as `$ITEM_ID`.
 
-#### Step 5 — Set custom field values
+#### Step 4 — Set custom field values
 
-Four edits per item, using the field/option IDs cached in Phase 2:
+Four edits per item, using IDs cached from `.archetipo/config.yaml` and Step 1:
 
-- Status = Todo:
-  ```bash
-  gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$TODO_OPTION_ID"
-  ```
-- Priority:
-  ```bash
-  gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$PRIORITY_FIELD_ID" --single-select-option-id "$PRIORITY_OPTION_ID"
-  ```
-- Story Points:
-  ```bash
-  gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$SP_FIELD_ID" --number <N>
-  ```
-- Epic:
-  ```bash
-  gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$EPIC_FIELD_ID" --single-select-option-id "$EPIC_OPTION_ID"
-  ```
+```bash
+# Status = Todo
+gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$TODO_OPTION_ID"
 
-Run gh commands **sequentially**, one story at a time. No parallel tool calls. If a single command fails (label exists, etc.), continue and report at the end.
+# Priority
+gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$PRIORITY_FIELD_ID" --single-select-option-id "$PRIORITY_OPTION_ID"
+
+# Story Points
+gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$SP_FIELD_ID" --number <N>
+
+# Epic
+gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$EPIC_FIELD_ID" --single-select-option-id "$EPIC_OPTION_ID"
+```
+
+Run gh commands **sequentially**, one story at a time. No parallel tool calls. If a single command fails, continue and report at the end.
 
 ---
 
-### PHASE 4 — Output
+### PHASE 3 — Output
 
 #### Bootstrap mode
 
@@ -533,7 +445,7 @@ Prossimo passo: `/archetipo-plan US-NNN` per pianificare una di queste storie.
 
 Emanuele runs internally:
 
-- [ ] Every story is traceable to an FR (bootstrap) or to a clear user request (extend), or is a foundational increment that enables subsequent stories.
+- [ ] Every story is traceable to an FR (bootstrap) or to a clear user request (extend), or is a foundational increment.
 - [ ] No story estimated at 8 SP or more (must be split via SPIDR).
 - [ ] Acceptance criteria describe behavior, not implementation.
 - [ ] HIGH priority stories come first within each epic.
@@ -542,7 +454,7 @@ Emanuele runs internally:
 - [ ] Within each epic, stories are ordered by incrementality.
 - [ ] Every AC is verifiable with the sole implementation of its story.
 - [ ] No circular dependencies.
-- [ ] No story recreates a boilerplate feature listed above.
+- [ ] No story recreates a boilerplate feature.
 
 ---
 
@@ -550,17 +462,21 @@ Emanuele runs internally:
 
 **PRD with very few FRs (<5, bootstrap):** Emanuele infers additional stories from persona goals and MVP scope. Each inferred story is marked `[INFERRED]` in the body.
 
-**PRD with many FRs (>30, bootstrap):** Focus on MVP first; Growth and Vision stories at higher granularity (fewer, larger). Suggest re-running per-epic for finer detail.
+**PRD with many FRs (>30, bootstrap):** Focus on MVP first; Growth and Vision stories at higher granularity.
 
-**PRD scope unclear (no MVP/Growth/Vision split, bootstrap):** Apply MoSCoW: Must → HIGH/MVP, Should → MEDIUM/MVP-or-Growth, Could → LOW/Growth-or-Vision, Won't → excluded (note as a project comment).
+**PRD scope unclear (no MVP/Growth/Vision split, bootstrap):** Apply MoSCoW: Must → HIGH/MVP, Should → MEDIUM/MVP-or-Growth, Could → LOW/Growth-or-Vision, Won't → excluded.
 
 **Story too large (8+ SP):** Split into 2–3 sub-stories automatically using SPIDR. The original never enters the backlog.
 
-**Story not vertically splittable (pure technical requirement):** If foundational and demonstrable, accept as-is. Otherwise merge with the smallest user story that makes it demonstrable. If the merge exceeds 5 SP, apply SPIDR by Path.
+**Story not vertically splittable (pure technical requirement):** If foundational and demonstrable, accept as-is. Otherwise merge with the smallest user story that makes it demonstrable.
 
-**Circular dependencies:** Merge involved stories, then re-apply SPIDR for independent vertical splits.
+**Circular dependencies:** Merge involved stories, then re-apply SPIDR.
 
-**Extend mode, user prompt is too vague to derive a story:** Ask one clarifying question (persona, observable benefit) before drafting. Do not invent personas or benefits.
+**Extend mode, user prompt is too vague:** Ask one clarifying question (persona, observable benefit) before drafting. Do not invent personas or benefits.
+
+**Epic field still has the placeholder option from init:** drop `EP-000: placeholder` from the union when calling `updateProjectV2Field` in Phase 2 Step 1 (first bootstrap run only).
+
+**Field IDs in config no longer valid (project recreated, options rewritten outside Archetipo):** stop and tell the user to re-run `/archetipo-init`.
 
 ---
 
@@ -568,5 +484,5 @@ Emanuele runs internally:
 
 - Run gh commands **sequentially**, one story at a time. No parallel tool calls.
 - Use `-L 200` with `gh project item-list` to avoid the default 30-item cap.
-- The `updateProjectV2Field` mutation **replaces all options** — always include existing options when adding new ones to single-select fields.
-- Never modify files outside `.archetipo/config.yaml` and the issues themselves.
+- The `updateProjectV2Field` mutation **replaces all options** — always pass the full set when adding new epic options.
+- Never modify files outside the issues themselves. Config is read-only here; init owns it.
