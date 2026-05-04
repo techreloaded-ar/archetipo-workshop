@@ -101,12 +101,6 @@ git clone "$TEMPLATE_REPO" "$PROJECT_DIR"
 
 cd "$PROJECT_DIR"
 
-echo "Imposto il remote origin: $REMOTE_URL"
-git remote set-url origin "$REMOTE_URL"
-
-echo "Push verso il nuovo remote..."
-git push -u origin main
-
 # --- Copia skills ---
 
 SKILLS_SRC="$(pwd)/skills"
@@ -127,12 +121,24 @@ for idx in "${SELECTED_INDICES[@]}"; do
     done
 done
 
-# --- Pulizia file di setup ---
+# --- Pulizia file di setup e reinit git ---
 
 echo "Pulizia file di setup..."
 rm -rf "$DEST/skills"
 rm -f "$DEST/setup.ps1"
 rm -f "$DEST/setup.sh"
+
+echo "Reinizializzo la storia git..."
+rm -rf "$DEST/.git"
+git init -b main
+git add -A
+git commit -m "Initial commit from archetipo-workshop"
+
+echo "Imposto il remote origin: $REMOTE_URL"
+git remote add origin "$REMOTE_URL"
+
+echo "Push verso il nuovo remote..."
+git push -u origin main
 
 echo ""
 echo -e "\033[32mFatto! Il progetto e' pronto in './$PROJECT_DIR'\033[0m"

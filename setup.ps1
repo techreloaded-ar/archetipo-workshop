@@ -92,18 +92,10 @@ Write-Host ""
 Write-Host "Clono il template in '$PROJECT_DIR'..."
 git clone $TEMPLATE_REPO $PROJECT_DIR
 
-Set-Location $PROJECT_DIR
-
-Write-Host "Imposto il remote origin: $REMOTE_URL"
-git remote set-url origin $REMOTE_URL
-
-Write-Host "Push verso il nuovo remote..."
-git push -u origin main
-
 # --- Copia .archetipo e skills ---
 
-$SKILLS_SRC = Join-Path (Get-Location) "skills"
-$DEST          = Resolve-Path "."
+$DEST       = Resolve-Path $PROJECT_DIR
+$SKILLS_SRC = Join-Path $DEST "skills"
 
 Write-Host ""
 Write-Host "Installazione Archetipo in: $DEST" -ForegroundColor Green
@@ -120,12 +112,29 @@ foreach ($tool in $selectedTools) {
     }
 }
 
-# --- Pulizia file di setup ---
+# --- Pulizia file di setup e reinit git ---
 
-Write-Host "Pulizia file di setup..."
-Remove-Item -Path (Join-Path $DEST "skills") -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -Path (Join-Path $DEST "setup.ps1") -Force -ErrorAction SilentlyContinue
-Remove-Item -Path (Join-Path $DEST "setup.sh") -Force -ErrorAction SilentlyContinue
+Push-Location $DEST
+try {
+    Write-Host "Pulizia file di setup..."
+    Remove-Item -Path (Join-Path $DEST "skills") -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path $DEST "setup.ps1") -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path $DEST "setup.sh") -Force -ErrorAction SilentlyContinue
+
+    Write-Host "Reinizializzo la storia git..."
+    Remove-Item -Path (Join-Path $DEST ".git") -Recurse -Force
+    git init -b main
+    git add -A
+    git commit -m "Initial commit from archetipo-workshop"
+
+    Write-Host "Imposto il remote origin: $REMOTE_URL"
+    git remote add origin $REMOTE_URL
+
+    Write-Host "Push verso il nuovo remote..."
+    git push -u origin main
+} finally {
+    Pop-Location
+}
 
 Write-Host ""
 Write-Host "Fatto! Il progetto e' pronto in '.\$PROJECT_DIR'" -ForegroundColor Green
@@ -133,7 +142,7 @@ Write-Host "Remote origin: $REMOTE_URL"
 Write-Host ""
 Write-Host "Prossimi passi:"
 Write-Host "  cd $PROJECT_DIR"
-Write-Host "  cp .env.example .env.local  # configura le variabili d'ambiente"
+Write-Host "  cp .env.example .env  # configura le variabili d'ambiente"
 Write-Host "  npm install"
 Write-Host "  npm run dev"
 Write-Host ""
