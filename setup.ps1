@@ -66,16 +66,22 @@ function Show-Menu {
 function Invoke-GhText {
     param(
         [string[]]$Arguments,
-        [string]$ErrorMessage
+        [string]$ErrorMessage,
+        [int]$MaxRetries = 2
     )
 
-    $output = & gh @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "$ErrorMessage`n$output"
-        exit 1
+    for ($attempt = 0; $attempt -le $MaxRetries; $attempt++) {
+        $output = & gh @Arguments 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            return (($output | Out-String).Trim())
+        }
+        if ($attempt -lt $MaxRetries) {
+            Start-Sleep -Milliseconds 900
+        }
     }
 
-    return (($output | Out-String).Trim())
+    Write-Error "$ErrorMessage`n$output"
+    exit 1
 }
 
 function Assert-ProjectScopes {
@@ -187,22 +193,27 @@ function Initialize-ArchetipoGitHubProject {
     }
 
     Write-Host "Configuro Status: Todo, Planned, In Progress, Review, Done"
-    $statusOptions = @'
-[
-  {"name":"Todo","color":"GRAY","description":""},
-  {"name":"Planned","color":"BLUE","description":""},
-  {"name":"In Progress","color":"YELLOW","description":""},
-  {"name":"Review","color":"PURPLE","description":""},
-  {"name":"Done","color":"GREEN","description":""}
-]
+    $statusQueryTemplate = @'
+mutation {
+  updateProjectV2Field(input: {
+    fieldId: "__FIELD_ID__",
+    singleSelectOptions: [
+      {name: "Todo",        color: GRAY,   description: ""},
+      {name: "Planned",     color: BLUE,   description: ""},
+      {name: "In Progress", color: YELLOW, description: ""},
+      {name: "Review",      color: PURPLE, description: ""},
+      {name: "Done",        color: GREEN,  description: ""}
+    ]
+  }) {
+    projectV2Field {
+      ... on ProjectV2SingleSelectField { id options { id name } }
+    }
+  }
+}
 '@
+    $statusQuery = $statusQueryTemplate.Replace("__FIELD_ID__", $statusField.id)
 
-    Invoke-GhText -Arguments @(
-        "api", "graphql",
-        "-f", "query=mutation(`$f:ID!,`$opts:[ProjectV2SingleSelectFieldOptionInput!]!){updateProjectV2Field(input:{fieldId:`$f, singleSelectOptions:`$opts}){projectV2Field { ... on ProjectV2SingleSelectField { id options { id name } } }}}",
-        "-f", "f=$($statusField.id)",
-        "-f", "opts=$statusOptions"
-    ) -ErrorMessage "Non riesco a configurare le opzioni del campo Status." | Out-Null
+    Invoke-GhText -Arguments @("api", "graphql", "-f", "query=$statusQuery") -ErrorMessage "Non riesco a configurare le opzioni del campo Status." | Out-Null
 
     $priorityFieldId = Ensure-ProjectField -ProjectNumber $projectNumber -Owner $owner -Name "Priority" -ExpectedType "SINGLE_SELECT" -CreateArguments @("--data-type", "SINGLE_SELECT", "--single-select-options", "HIGH,MEDIUM,LOW")
     $storyPointsFieldId = Ensure-ProjectField -ProjectNumber $projectNumber -Owner $owner -Name "Story Points" -ExpectedType "NUMBER" -CreateArguments @("--data-type", "NUMBER")
