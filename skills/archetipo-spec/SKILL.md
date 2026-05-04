@@ -181,11 +181,11 @@ Bind: `$OWNER`, `$PN`, `$PROJECT_NODE_ID`, `$STATUS_FIELD_ID`, `$TODO_OPTION_ID`
 
 #### Step 2 — Mode detection
 
-1. Count existing stories:
-   ```bash
-   gh issue list --label "archetipo-spec" --state all --json number --limit 1 --jq 'length'
-   ```
-   Save as `$STORY_COUNT`.
+1. Count existing stories **on the configured project board** (not the whole repo) so issues that live in the same repo but on a different project are excluded.
+
+   **Intent:** fetch the project items as JSON via `gh project item-list "$PN" --owner "$OWNER" -L 500 --format json`, then count those whose `content.labels` contains `archetipo-spec`. Save as `$STORY_COUNT`.
+
+   **Filtering rule — important:** do **not** embed the literal string `"archetipo-spec"` inside a `--jq` expression. Nested quoting around that string has misfired across shells (e.g. on Windows bash) with `jq: function not defined: spec/0`, because the dash is parsed as subtraction once the surrounding quotes are stripped. Instead, parse the JSON natively in the host shell and filter there (PowerShell `ConvertFrom-Json` + `Where-Object { $_.content.labels -contains "archetipo-spec" }`, bash via a temp file + `python -c` / `node -e`, etc.). Pick whichever matches the current shell.
 
 2. Check for `docs/PRD.md` (use `Read`; if not found, glob `docs/*.md` for any file whose name suggests a PRD).
 
@@ -289,9 +289,11 @@ Skip in bootstrap mode.
 
 #### Step 1 — Read the existing backlog (Emanuele)
 
-```bash
-gh issue list --label "archetipo-spec" --state all --json number,title,labels --limit 200
-```
+Read items **from the configured project board only**, then keep those tagged `archetipo-spec`.
+
+**Intent:** fetch with `gh project item-list "$PN" --owner "$OWNER" -L 500 --format json`, then filter items whose `content.labels` contains `archetipo-spec`, keeping `{number, title, labels}` per item.
+
+**Filtering rule — important:** same as Phase 0 Step 2 — do **not** embed the literal `"archetipo-spec"` inside a `--jq` expression (it has been mangled to `jq: function not defined: spec/0` by shell quoting). Filter natively in the host shell after parsing the JSON.
 
 From the result extract:
 - The set of existing epics (labels matching `EP-XXX: …`).

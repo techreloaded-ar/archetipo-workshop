@@ -26,66 +26,58 @@ You are the facilitator of a **user story planning** session assisted by a team 
 
 > **Language rule:** Detect the language used in the issue body and use that same language consistently throughout the planning document and all communication.
 
-### PHASE 0 — Auth, Project Discovery & Story Selection
+### PHASE 0 — Config Load & Story Selection
 
 Upon activation:
 
-#### Step 1 — Auth check & owner detection
+#### Step 1 — Load `.archetipo/config.yaml`
 
-1. Detect repository owner and name:
-   ```bash
-   gh repo view --json owner --jq '.owner.login'
-   gh repo view --json name --jq '.name'
-   ```
-   Save as `$OWNER` and `$REPO`. `$REPO` is required by the `sub_issues` API endpoint in Phase 5.
+Read `.archetipo/config.yaml`. Required keys:
 
-2. Test GitHub Projects auth:
-   ```bash
-   gh project list --owner "$OWNER" --limit 1 --format json
-   ```
-   If this fails with a scope/permission error, show fix and **stop**:
+- `github.owner`
+- `github.project_number`
+- `github.project_node_id`
+- `github.fields.status.id` + `options.{todo, planned, in_progress, review, done}`
+- `github.fields.priority.id` + `options.{high, medium, low}`
+- `github.fields.story_points.id`
+- `github.fields.epic.id`
+
+If the file is missing or any required key is unset, **stop**:
 
 ```
-🔎 **Emanuele:** Non ho i permessi necessari per accedere ai GitHub Projects.
+🔎 **Emanuele:** Configurazione Archetipo incompleta o assente.
 
-Esegui questo comando per abilitare lo scope necessario:
-\`\`\`
-gh auth refresh -s read:project -s project
-\`\`\`
-
-Poi rilancia `/archetipo-plan`.
+Esegui prima `/archetipo-init` per configurare il GitHub Project e scrivere
+`.archetipo/config.yaml`, poi rilancia `/archetipo-plan`.
 ```
 
-#### Step 2 — Project discovery
+From the config, hold the following values for use in later steps (the binding mechanism is up to the executing shell — bash variables, PowerShell variables, in-context placeholders, etc.):
 
-1. Find the Backlog project:
-   ```bash
-   gh project list --owner "$OWNER" --format json
-   ```
-   Look for a project whose title contains "Backlog".
+- `<OWNER>`, `<PROJECT_NUMBER>`, `<PROJECT_NODE_ID>`
+- `<STATUS_FIELD_ID>` and the five option ids: `<TODO_OPTION_ID>`, `<PLANNED_OPTION_ID>`, `<IN_PROGRESS_OPTION_ID>`, `<REVIEW_OPTION_ID>`, `<DONE_OPTION_ID>`
+- `<PRIORITY_FIELD_ID>` and `<PRIORITY_HIGH_OPTION_ID>`, `<PRIORITY_MEDIUM_OPTION_ID>`, `<PRIORITY_LOW_OPTION_ID>`
+- `<SP_FIELD_ID>`
+- `<EPIC_FIELD_ID>`
 
-2. If not found, show message and **stop**:
+Also fetch the repository **name** (the owner already comes from config):
+
 ```
-🔎 **Emanuele:** Non trovo un GitHub Project con "Backlog" nel titolo.
-
-Esegui prima `/archetipo-spec` per creare il project e le issue.
+gh repo view --json name
 ```
 
-3. Save `$PROJECT_NUMBER` and fetch field metadata:
-   ```bash
-   gh project field-list $PROJECT_NUMBER --owner "$OWNER" --format json
-   ```
-   Save field IDs and option IDs (Status options: Todo, Planned, In Progress, Review, Done; Priority, Story Points, Epic).
+Hold the returned `name` as `<REPO>` — required by the `sub_issues` REST endpoint in Phase 5.
 
-#### Step 3 — Fetch and filter items
+> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by `/archetipo-init`. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run `/archetipo-init`.
+
+#### Step 2 — Fetch and filter items
 
 1. Fetch all items:
-   ```bash
-   gh project item-list $PROJECT_NUMBER --owner "$OWNER" --format json -L 200
+   ```
+   gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
    ```
 
 2. Filter to items where:
-   - Status == "Todo"
+   - Status == "Todo" (match by `<TODO_OPTION_ID>` from config, not by name)
    - Does NOT have label `planned`
 
 3. If no eligible items found, inform the user and **stop**:
@@ -95,7 +87,7 @@ Esegui prima `/archetipo-spec` per creare il project e le issue.
 Tutte le story sono già pianificate o in lavorazione.
 ```
 
-#### Step 4 — Story selection
+#### Step 3 — Story selection
 
 1. **If a story code was passed as argument** (e.g., "US-005"):
    - Search for it among the filtered items by title prefix
@@ -110,13 +102,13 @@ Tutte le story sono già pianificate o in lavorazione.
    gh issue view <NUMBER> --json body,title,labels,number,url
    ```
 
-#### Step 5 — Context loading
+#### Step 4 — Context loading
 
 1. Check if `docs/planning/{US-CODE}.md` already exists. If so, ask the user whether to overwrite or skip.
 2. Read `docs/PRD.md` if it exists — provides useful context for technical decisions.
 3. Read the content of `docs/mockups/` if it exists.
 
-#### Step 6 — Announce the session
+#### Step 5 — Announce the session
 
 ```
 📋 ARCHETIPO - USER STORY PLANNING (GitHub Projects)
@@ -547,7 +539,7 @@ Move the item's Status to "Planned" on the project board:
 gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<PLANNED_OPTION_ID>"
 ```
 
-To get the `<ITEM_ID>`, search the project items fetched in Phase 0, Step 3 for the item matching this issue number.
+To get the `<ITEM_ID>`, search the project items fetched in Phase 0, Step 2 for the item matching this issue number.
 
 #### Step 6 — Confirm completion
 
@@ -626,11 +618,15 @@ This ensures the plan is grounded in the actual codebase, not generic advice.
 
 ## Technical Reference
 
-### Parsing IDs Flow
+### IDs source
 
-1. `gh project list --owner "$OWNER" --format json` → project number + node ID
-2. `gh project field-list $N --owner "$OWNER" --format json` → field IDs + option IDs
-3. `gh project item-list $N --owner "$OWNER" --format json -L 200` → items with field values
+Project number, project node ID, field IDs, and option IDs all come from `.archetipo/config.yaml` (Phase 0 Step 1). The only `gh project` call this skill makes is:
+
+```
+gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
+```
+
+If field/option IDs in the config no longer match the live project (project recreated, options rewritten outside Archetipo), stop and ask the user to re-run `/archetipo-init`.
 
 ### Item List Limit
 

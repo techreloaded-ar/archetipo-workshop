@@ -25,65 +25,49 @@ You are the facilitator of a **user story implementation** session assisted by a
 
 > **Language rule:** Detect the language used in the issue body and use that same language consistently throughout all communication.
 
-### PHASE 0 — Auth, Project Discovery & Story Selection
+### PHASE 0 — Config Load & Story Selection
 
 Upon activation:
 
-#### Step 1 — Auth check & owner detection
+#### Step 1 — Load `.archetipo/config.yaml`
 
-1. Detect repository owner:
-   ```bash
-   gh repo view --json owner --jq '.owner.login'
-   ```
-   Save as `$OWNER`.
+Read `.archetipo/config.yaml`. Required keys:
 
-2. Test GitHub Projects auth:
-   ```bash
-   gh project list --owner "$OWNER" --limit 1 --format json
-   ```
-   If this fails with a scope/permission error, show fix and **stop**:
+- `github.owner`
+- `github.project_number`
+- `github.project_node_id`
+- `github.fields.status.id` + `options.{todo, planned, in_progress, review, done}`
+- `github.fields.priority.id` + `options.{high, medium, low}`
+- `github.fields.story_points.id`
+- `github.fields.epic.id`
+
+If the file is missing or any required key is unset, **stop**:
 
 ```
-🔧 **Ugo:** Non ho i permessi necessari per accedere ai GitHub Projects.
+🔧 **Ugo:** Configurazione Archetipo incompleta o assente.
 
-Esegui questo comando per abilitare lo scope necessario:
-\`\`\`
-gh auth refresh -s read:project -s project
-\`\`\`
-
-Poi rilancia `/archetipo-implement`.
+Esegui prima `/archetipo-init` per configurare il GitHub Project e scrivere
+`.archetipo/config.yaml`, poi rilancia `/archetipo-implement`.
 ```
 
-#### Step 2 — Project discovery
+From the config, hold the following values for use in later steps (binding mechanism — bash variable, PowerShell variable, in-context placeholder — is up to the executing shell):
 
-1. Find the Backlog project:
-   ```bash
-   gh project list --owner "$OWNER" --format json
-   ```
-   Look for a project whose title contains "Backlog".
+- `<OWNER>`, `<PROJECT_NUMBER>`, `<PROJECT_NODE_ID>`
+- `<STATUS_FIELD_ID>` and the five option ids: `<TODO_OPTION_ID>`, `<PLANNED_OPTION_ID>`, `<IN_PROGRESS_OPTION_ID>`, `<REVIEW_OPTION_ID>`, `<DONE_OPTION_ID>`
+- `<PRIORITY_FIELD_ID>` and `<PRIORITY_HIGH_OPTION_ID>`, `<PRIORITY_MEDIUM_OPTION_ID>`, `<PRIORITY_LOW_OPTION_ID>`
+- `<SP_FIELD_ID>`
+- `<EPIC_FIELD_ID>`
 
-2. If not found, show message and **stop**:
-```
-🔧 **Ugo:** Non trovo un GitHub Project con "Backlog" nel titolo.
+> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by `/archetipo-init`. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run `/archetipo-init`.
 
-Esegui prima `/archetipo-spec` per creare il project e le issue.
-```
-
-3. Save `$PROJECT_NUMBER` and fetch field metadata:
-   ```bash
-   gh project field-list $PROJECT_NUMBER --owner "$OWNER" --format json
-   ```
-   Save field IDs and option IDs (Status options: Todo, Planned, In Progress, Review, Done; Priority, Story Points, Epic).
-
-#### Step 3 — Fetch and filter items
+#### Step 2 — Fetch and filter items
 
 1. Fetch all items:
-   ```bash
-   gh project item-list $PROJECT_NUMBER --owner "$OWNER" --format json -L 200
+   ```
+   gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
    ```
 
-2. Filter to items where:
-   - Status == "Planned"
+2. Filter to items where Status matches `<PLANNED_OPTION_ID>` (match by option id, not by display name).
 
 3. For each candidate, verify that `docs/planning/{US-CODE}.md` exists locally.
 
@@ -100,7 +84,7 @@ Puoi:
 - Specificare una story diversa come argomento
 ```
 
-#### Step 4 — Story selection
+#### Step 3 — Story selection
 
 1. **If a story code was passed as argument** (e.g., "US-005"):
    - Search for it among the filtered items by title prefix
@@ -115,20 +99,20 @@ Puoi:
    gh issue view <NUMBER> --json body,title,labels,number,url
    ```
 
-#### Step 5 — Move to "In Progress"
+#### Step 4 — Move to "In Progress"
 
 Update the item's Status to "In Progress":
 ```bash
 gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<IN_PROGRESS_OPTION_ID>"
 ```
 
-#### Step 6 — Load context
+#### Step 5 — Load context
 
 1. **Load the implementation plan:** Read `docs/planning/{US-CODE}.md`
 2. **Read project context:** Read project configuration files (e.g., `CLAUDE.md`, project conventions directory) for conventions and architecture
 3. Do NOT read `docs/PRD.md` — the implementation plan already contains all necessary context. Only read the PRD if the implementation plan explicitly references it.
 
-#### Step 7 — Announce the session
+#### Step 6 — Announce the session
 
 ```
 ⚡ ARCHETIPO - USER STORY IMPLEMENTATION (GitHub Projects)
@@ -473,15 +457,15 @@ To maximize the amount of work that fits within a single session:
 
 ## Technical Reference
 
-### Parsing IDs Flow
+### IDs source
 
-All `item-edit` commands require node IDs. The flow is:
+Project number, project node ID, field IDs, and option IDs all come from `.archetipo/config.yaml` (Phase 0 Step 1). The only `gh project` call this skill makes is:
 
-1. `gh project list --owner "$OWNER" --format json` → project number + node ID
-2. `gh project field-list $N --owner "$OWNER" --format json` → field IDs + option IDs
-3. `gh project item-list $N --owner "$OWNER" --format json -L 200` → items with field values
+```
+gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
+```
 
-Always use `--format json` to get machine-parseable output.
+Always use `--format json` for machine-parseable output. If field/option IDs in the config no longer match the live project, stop and ask the user to re-run `/archetipo-init`.
 
 ### Item List Limit
 
@@ -491,6 +475,6 @@ Always use `-L 200` with `gh project item-list` to avoid the default limit of 30
 
 | From | To | When |
 |---|---|---|
-| Planned | In Progress | implement starts (Phase 0, Step 5) |
+| Planned | In Progress | implement starts (Phase 0, Step 4) |
 | In Progress | Review | implement completes (Phase 5, Step 2) |
 | Review | Done | **Human reviewer** — not automated |
