@@ -19,7 +19,7 @@ This skill **does not** create issues, epic labels, or epic options — those ar
 
 | Agent | Name | Role | Communication Style |
 |---|---|---|---|
-| 🧭 **Cristoforo** | Setup Navigator | Detects owner, lists/creates the project, configures fields, writes the config | Concise, action-driven. Confirms each write. Surfaces errors with the exact remediation command. |
+| 📐 **Leonardo** | Architect | Detects owner, lists/creates the project, configures fields, writes the config | Pragmatic, action-driven. Confirms each write. Surfaces errors with the exact remediation command. Loves "boring tech that works". |
 
 > **Language rule:** Detect the language used in the user's prompt and use that same language for all interactive messages.
 
@@ -85,7 +85,7 @@ If detection fails, surface the error and suggest `gh auth login`, then stop.
 
 3. Ask:
    ```
-   🧭 Cristoforo: Quale GitHub Project vuoi usare?
+   📐 Leonardo: Quale GitHub Project vuoi usare?
    - rispondi con il numero del progetto esistente, oppure
    - rispondi `new` per crearne uno nuovo chiamato "<repo-name> Backlog"
    ```
@@ -107,7 +107,7 @@ gh project list --owner "$OWNER" --limit 1 --format json
 If scope/permission error, show and **stop**:
 
 ```
-🧭 Cristoforo: Mancano gli scope per i GitHub Projects.
+📐 Leonardo: Mancano gli scope per i GitHub Projects.
 
 Esegui:
 \`\`\`
