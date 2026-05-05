@@ -110,7 +110,12 @@ gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-i
 
 1. **Load the implementation plan:** Read `docs/planning/{US-CODE}.md`
 2. **Read project context:** Read project configuration files (e.g., `CLAUDE.md`, project conventions directory) for conventions and architecture
-3. Do NOT read `docs/PRD.md` — the implementation plan already contains all necessary context. Only read the PRD if the implementation plan explicitly references it.
+3. **Load UI mockups when relevant:** If the implementation plan contains frontend/UI tasks, or if the story requires creating or modifying UI, inspect `docs/mockups/` before implementation. Read the exact mockup files referenced by the plan; if the plan does not reference specific files, inspect `docs/mockups/` and identify the relevant mockup(s) yourself.
+4. Do NOT read `docs/PRD.md` — the implementation plan already contains all necessary context. Only read the PRD if the implementation plan explicitly references it.
+
+**Mockup authority rule:** For every frontend/UI task, `docs/mockups/` is the binding visual source of truth. Ugo MUST implement new UI pedantically from the relevant mockup(s): layout, visual hierarchy, spacing, typography, colors, component structure, content density, interaction states, and responsive behavior must match the mockup as closely as the production stack allows. Do not reinterpret, simplify, beautify, standardize, or replace the mockup design with generic shadcn/Tailwind defaults unless the mockup itself uses them.
+
+If a mockup conflicts with the implementation plan, existing UI conventions, or Ugo's design preference, the mockup wins for visual/UI behavior. If matching the mockup is technically impossible, ambiguous in a way that affects visible UI, or would violate accessibility/security constraints, stop and ask the user how to proceed before coding that UI.
 
 #### Step 6 — Announce the session
 
@@ -190,7 +195,12 @@ Execute the tasks wave by wave following the parallelization strategy.
 
 1. **Read only the relevant sections** of existing files before making changes. For files longer than 200 lines, read only the specific functions, classes, or sections that will be modified — not the entire file. The implementation plan specifies which sections to change.
 2. **Follow project conventions** from CLAUDE.md and .claude/ files
-3. When designing UI/UX, **Follow the mockups** from docs/mockups, if they exist
+3. For frontend/UI work, **follow the mockups from `docs/mockups/` pedantically**:
+   - Inspect the relevant mockup(s) before writing UI code.
+   - Preserve layout, visual hierarchy, spacing, typography, colors, component structure, states, and responsive behavior.
+   - Treat the mockup as the acceptance baseline for visible UI.
+   - Do not introduce alternate layouts, extra decorative elements, different palettes, or generic component arrangements not present in the mockup.
+   - Reuse production components only when they can be styled/composed to match the mockup; component-library defaults are not a reason to diverge.
 4. **Write code** that matches the existing patterns and style in the codebase
 5. **Mark the task as done** inside the docs/planning/US-XXX.md file
 6. **Announce completion** briefly after each task
@@ -201,6 +211,7 @@ Execute the tasks wave by wave following the parallelization strategy.
 - Do not add features or code beyond what the task requires
 - If a task requires creating a new file, verify the target directory exists first
 - If the implementation plan specifies specific technologies or approaches, follow them
+- For UI tasks, explicitly mention which mockup file(s) were followed when reporting task completion
 
 **Mina's test rules:**
 - Write tests that verify the acceptance criteria from the user story
@@ -240,27 +251,28 @@ After all tasks are implemented and tests pass, **delegate the code review to a 
 **Cesare reviews against these criteria:**
 
 1. **Aderenza al piano:** Does the implementation match the technical solution described in `docs/planning/{US-CODE}.md`?
-2. **Qualità del codice:**
+2. **Aderenza ai mockup UI:** For frontend/UI changes, does the implementation match the relevant files in `docs/mockups/` with high fidelity for layout, hierarchy, spacing, typography, colors, component composition, states, and responsive behavior? Any unjustified visual deviation from the mockup is a review finding.
+3. **Qualità del codice:**
    - Code is readable and well-structured
    - Naming is clear and consistent with project conventions
    - No unnecessary duplication
    - No dead code or commented-out code
    - Proper error handling where appropriate
-3. **Aderenza all'architettura:**
+4. **Aderenza all'architettura:**
    - Follows the project's architectural patterns (from CLAUDE.md and .claude/ files)
    - Correct layer separation (no business logic in controllers, no DB access in use cases, etc.)
    - DTOs, mappers, and interfaces used correctly
-4. **Sicurezza:**
+5. **Sicurezza:**
    - No SQL injection, XSS, or other OWASP Top 10 vulnerabilities
    - Proper input validation at system boundaries
    - No hardcoded secrets or credentials
    - Authentication/authorization correctly applied
-5. **Test quality:**
+6. **Test quality:**
    - Tests cover the acceptance criteria
    - Tests are meaningful (not just testing that code runs without error)
    - Edge cases and error scenarios are covered
    - No flaky or implementation-dependent tests
-6. **Completezza:**
+7. **Completezza:**
    - All acceptance criteria from the user story are satisfied
    - All tasks from the implementation plan are completed
 

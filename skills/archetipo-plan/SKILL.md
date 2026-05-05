@@ -108,6 +108,15 @@ Tutte le story sono già pianificate o in lavorazione.
 2. Read `docs/PRD.md` if it exists — provides useful context for technical decisions.
 3. Read the content of `docs/mockups/` if it exists.
 
+**Mockup authority rule:** If `docs/mockups/` exists and contains files, those mockups are the visual source of truth for any frontend or UI work in this story. The planning team MUST inspect the relevant mockup files before proposing frontend changes and MUST preserve their layout, visual hierarchy, spacing, typography, color usage, component structure, interaction states, and responsive behavior unless the user explicitly asks for a deviation.
+
+When a story includes UI work, the planning document MUST:
+- List the exact mockup file(s) or folder(s) that apply to the story.
+- Translate mockup details into concrete implementation constraints, not vague design guidance.
+- Reference the applicable mockup(s) in every frontend task that creates or modifies UI.
+- Add completion criteria requiring the implemented UI to match the mockup(s) closely.
+- Flag any conflict between the user story, current codebase, and mockups before Phase 2 approval instead of silently choosing a different design.
+
 #### Step 5 — Announce the session
 
 ```
@@ -194,6 +203,8 @@ Leonardo proposes the technical solution:
    - Business logic (use cases, services, validations)
    - Frontend changes (new components, pages, state management)
 4. **Evaluate alternatives:** If there are multiple viable approaches, briefly describe each with pros/cons, then recommend one with clear justification
+
+For frontend/UI changes, Leonardo MUST treat the relevant `docs/mockups/` files as binding design input. Do not replace the mockup with a different layout, component composition, visual style, or interaction model for convenience. If the mockup is incomplete, plan only the missing behavior around it while preserving the visible design.
 
 Ugo validates the solution from an implementation perspective:
 - Is this realistically implementable?
@@ -379,6 +390,7 @@ After the team has completed their analysis, generate the planning document.
 
 **Tipo:** Implementazione / Test
 **Dipendenze:** nessuna / TASK-XX
+**Mockup di riferimento:** `{docs/mockups/...}` / nessuno
 **File coinvolti:**
 - `{file_path}` — {crea/modifica}: {cosa fare}
 
@@ -388,6 +400,7 @@ After the team has completed their analysis, generate the planning document.
 **Criteri di completamento:**
 - [ ] {COMPLETION_CRITERION_1}
 - [ ] {COMPLETION_CRITERION_2}
+- [ ] Per task UI: layout, gerarchia visiva, spacing, tipografia, colori, componenti, stati e responsive behavior corrispondono ai mockup di riferimento in `docs/mockups/`
 
 ---
 
