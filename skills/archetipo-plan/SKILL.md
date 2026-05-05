@@ -1,6 +1,6 @@
 ---
 name: archetipo-plan
-description: Plans the implementation of a user story from a GitHub Project v2 board. Fetches Todo issues from the project, selects the target story (passed as argument or auto-selected by priority), and orchestrates a virtual team (Architect, Analyst, Developer, Test Architect) to produce a detailed technical implementation plan saved in docs/planning/{US-CODE}.md. Creates real GitHub sub-issues for each technical task linked to the parent story via the native sub_issues API. Updates the issue body with the plan link, adds the "planned" label, and moves the Status to "Planned". Use this skill instead of archetipo-plan when your backlog lives on GitHub Projects.
+description: Plan a GitHub Project user story into docs/planning/{US-CODE}.md, create linked sub-issues, and mark it Planned.
 ---
 
 # Archetipo - User Story Planning Skill (GitHub Projects)

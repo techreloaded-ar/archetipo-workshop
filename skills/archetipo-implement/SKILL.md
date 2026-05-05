@@ -1,6 +1,6 @@
 ---
 name: archetipo-implement
-description: Implements a user story by executing the technical plan from docs/planning/. Fetches issues in "Planned" status from a GitHub Project v2 board, selects a story (passed as argument or auto-selected by priority), moves it to "In Progress", implements the code, and moves it to "Review" when done. Posts a summary comment on the issue. Use this skill instead of archetipo-implement when your backlog lives on GitHub Projects.
+description: Implement a planned GitHub Project user story from docs/planning, move it through In Progress to Review, and comment with the result.
 ---
 
 # Archetipo - User Story Implementation Skill (GitHub Projects)

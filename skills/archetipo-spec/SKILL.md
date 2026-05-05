@@ -1,6 +1,6 @@
 ---
 name: archetipo-spec
-description: Authoring guide and workflow for writing effective user stories on a GitHub Project v2 board. Operates in two auto-detected modes. BOOTSTRAP MODE (when the backlog is empty and a PRD exists in docs/PRD.md): reads the PRD, decomposes it into a full prioritized backlog of epics and user stories, and creates all GitHub Issues on the project board. EXTEND MODE (when the backlog already contains stories): takes the user's prompt, infers one or more new stories, reuses existing epics where possible, numbers from max(US-XXX)+1, and appends only the new issues. Requires the setup script to have configured the project (Status 5-state, Priority, Story Points, Epic fields) and written field IDs to `.archetipo/config.yaml`. Use this skill when the user wants to "create a backlog from the PRD", "add a user story", "extend the backlog", or "write a story for ...". Do not use for discovery/PRD writing (use /archetipo-inception), planning (use /archetipo-plan), or implementation (use /archetipo-implement).
+description: Create or extend a GitHub Project backlog from docs/PRD.md or a prompt, writing prioritized epics and user stories.
 ---
 
 # Archetipo - Spec Skill (GitHub Projects)
