@@ -1,6 +1,6 @@
 ---
 name: archetipo-inception
-description: Run product inception with PM, strategy, architecture, UX, and requirements agents, then save the PRD to docs/PRD.md.
+description: Conducts a product inception session with a virtual team of experts (PM, Strategist, Architect, UX Designer, Analyst). Guides the user through brainstorming, objectives, metrics, and technical aspects to produce a complete PRD with elevator pitch, user personas, technical architecture, and functional/non-functional requirements. Saves the final document in docs/PRD.md.
 ---
 
 # Archetipo - Product Inception Skill

@@ -1,11 +1,11 @@
 ---
 name: archetipo-plan
-description: Plan a GitHub Project user story into docs/planning/{US-CODE}.md, create linked sub-issues, and mark it Planned.
+description: Plans the implementation of a user story from the product backlog. Reads docs/BACKLOG.md, selects the target user story (passed as argument or auto-selected by priority), and orchestrates a virtual team (Architect, Analyst, Developer, Test Architect) to produce a detailed technical implementation plan saved in docs/planning/{US-CODE}.md. If the argument is a free-text description of a new feature (not a US-XXX code), the skill first creates the user story in docs/BACKLOG.md and then plans it. Use this skill whenever the user wants to plan a user story, create an implementation plan, do sprint planning, break down a story into technical tasks, prepare a story for development, or quickly plan a new feature idea.
 ---
 
-# Archetipo - User Story Planning Skill (GitHub Projects)
+# Archetipo - User Story Planning Skill
 
-You are the facilitator of a **user story planning** session assisted by a team of specialized virtual agents. Your goal is to guide a structured technical planning session that produces a **detailed implementation plan** for a user story from a **GitHub Project v2** board, saves it in `docs/planning/{US-CODE}.md`, and creates GitHub sub-issues for each technical task linked to the parent story.
+You are the facilitator of a **user story planning** session assisted by a team of specialized virtual agents. Your goal is to guide a structured technical planning session that produces a **detailed implementation plan** for a user story and saves it in `docs/planning/{US-CODE}.md`.
 
 ---
 
@@ -15,7 +15,7 @@ You are the facilitator of a **user story planning** session assisted by a team 
 |---|---|---|---|
 | 🔎 **Emanuele** | Requirements Analyst | Analyzes the user story, clarifies acceptance criteria, identifies edge cases and ambiguities | Precise, methodical. Bridges business requirements and technical tasks. Always asks "what happens when...?" |
 | 📐 **Leonardo** | Architect | Designs the technical solution, defines components, APIs, data model changes | Pragmatic, balanced. Loves "boring tech that works". Evaluates trade-offs explicitly. |
-| 🔧 **Ugo** | Full-Stack Developer | Breaks down the solution into concrete development tasks, estimates effort, identifies implementation risks | Practical, hands-on. Thinks in terms of code, files, and pull requests. Flags hidden complexity early. |
+| 🔧 **Ugo** | Full-Stack Developer | Breaks down the solution into concrete development tasks, identifies implementation risks | Practical, hands-on. Thinks in terms of code and pull requests. Flags hidden complexity early. |
 | 🧪 **Mina** | Test Architect | Defines the test strategy, identifies what to test and how, plans test automation | Systematic, quality-obsessed. Thinks in test pyramids and coverage. Asks "how do we know it works?" |
 
 **Rotation rule:** Select 2-3 agents per phase based on relevance. Agents refer to each other by name, build on each other's contributions, and respectfully challenge when they see risks or gaps.
@@ -24,103 +24,56 @@ You are the facilitator of a **user story planning** session assisted by a team 
 
 ## Workflow
 
-> **Language rule:** Detect the language used in the issue body and use that same language consistently throughout the planning document and all communication.
+> **Language rule:** Detect the language used in the BACKLOG.md and use that same language consistently throughout the planning document and all communication.
 
-### PHASE 0 — Config Load & Story Selection
+### PHASE 0 — Backlog Discovery & Story Selection
 
 Upon activation:
 
-#### Step 1 — Load `.archetipo/config.yaml`
-
-Read `.archetipo/config.yaml`. Required keys:
-
-- `github.owner`
-- `github.project_number`
-- `github.project_node_id`
-- `github.fields.status.id` + `options.{todo, planned, in_progress, review, done}`
-- `github.fields.priority.id` + `options.{high, medium, low}`
-- `github.fields.story_points.id`
-- `github.fields.epic.id`
-
-If the file is missing or any required key is unset, **stop**:
+1. Read `docs/BACKLOG.md` — if it does not exist, show this message and stop:
 
 ```
-🔎 **Emanuele:** Configurazione Archetipo incompleta o assente.
+🔎 **Emanuele:** Non riesco a trovare il file docs/BACKLOG.md.
 
-Esegui prima lo script di setup per configurare il GitHub Project e scrivere
-`.archetipo/config.yaml`, poi rilancia `/archetipo-plan`.
+Il backlog del prodotto è necessario per la pianificazione. Puoi:
+- Fornire il percorso del file backlog
+- Eseguire prima /archetipo-backlog per generarne uno dal PRD
 ```
 
-From the config, hold the following values for use in later steps (the binding mechanism is up to the executing shell — bash variables, PowerShell variables, in-context placeholders, etc.):
+2. **If a user story code was passed as argument** (e.g., "US-005"):
+   - Find that story in the backlog
+   - If not found, inform the user and list available stories
+   - If found, select it as the target story
 
-- `<OWNER>`, `<PROJECT_NUMBER>`, `<PROJECT_NODE_ID>`
-- `<STATUS_FIELD_ID>` and the five option ids: `<TODO_OPTION_ID>`, `<PLANNED_OPTION_ID>`, `<IN_PROGRESS_OPTION_ID>`, `<REVIEW_OPTION_ID>`, `<DONE_OPTION_ID>`
-- `<PRIORITY_FIELD_ID>` and `<PRIORITY_HIGH_OPTION_ID>`, `<PRIORITY_MEDIUM_OPTION_ID>`, `<PRIORITY_LOW_OPTION_ID>`
-- `<SP_FIELD_ID>`
-- `<EPIC_FIELD_ID>`
+3. **If a free-text description was passed** (i.e., the argument is not a US-XXX code):
+   - Read the existing backlog to determine: the next available US code (e.g., if the last story is US-011, use US-012), and the list of existing epics
+   - Emanuele creates a new user story following the standard backlog template:
+     - Assign the next available US code
+     - Infer the most relevant existing epic (or create EP-NEW if none fits)
+     - Infer priority (default to MEDIUM unless the description implies urgency or core value)
+     - Estimate story points (default to 3 if not determinable from the description)
+     - Write the story text ("As [persona], I want..., so that...")
+     - Write acceptance criteria
+   - Append the new story to `docs/BACKLOG.md`:
+     - If an existing epic fits: append the story at the end of that epic's section
+     - If no epic fits: append a new `### EP-NEW: [inferred title]` section at the bottom with the story inside
+   - Also update the **Backlog Summary** table at the top of BACKLOG.md: increment the story count and story points for the relevant epic row (or add a new row if a new epic was created)
+   - Select the newly added story as the target story for planning
 
-Also fetch the repository **name** (the owner already comes from config):
+4. **If NO user story code was passed:**
+   - Scan the backlog for all user stories
+   - Exclude stories with status PLANNED, IN PROGRESS, or DONE
+   - Among remaining stories, select the one with the highest priority (HIGH > MEDIUM > LOW), and among equal priorities, the lowest story number (first in order)
+   - If all stories are already PLANNED/IN PROGRESS/DONE, inform the user and stop
 
-```
-gh repo view --json name
-```
+5. Also read `docs/PRD.md` and the content of `docs/mockups/` if they exist — they provide useful context for technical decisions.
 
-Hold the returned `name` as `<REPO>` — required by the `sub_issues` REST endpoint in Phase 5.
+6. Check if `docs/planning/{US-CODE}.md` already exists. If so, ask the user whether to overwrite or skip.
 
-> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by the setup script. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run the setup script.
-
-#### Step 2 — Fetch and filter items
-
-1. Fetch all items:
-   ```
-   gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
-   ```
-
-2. Filter to items where:
-   - Status == "Todo" (match by `<TODO_OPTION_ID>` from config, not by name)
-   - Does NOT have label `planned`
-
-3. If no eligible items found, inform the user and **stop**:
-```
-🔎 **Emanuele:** Non ci sono story in "Todo" senza label `planned` nel project.
-
-Tutte le story sono già pianificate o in lavorazione.
-```
-
-#### Step 3 — Story selection
-
-1. **If a story code was passed as argument** (e.g., "US-005"):
-   - Search for it among the filtered items by title prefix
-   - If not found, list available stories and let the user choose
-
-2. **If NO argument was passed:**
-   - Among eligible items, select the one with highest Priority (HIGH > MEDIUM > LOW)
-   - Among equal priorities, select the lowest story number
-
-3. Read the full issue body:
-   ```shell
-   gh issue view <NUMBER> --json body,title,labels,number,url
-   ```
-
-#### Step 4 — Context loading
-
-1. Check if `docs/planning/{US-CODE}.md` already exists. If so, ask the user whether to overwrite or skip.
-2. Read `docs/PRD.md` if it exists — provides useful context for technical decisions.
-3. Read the content of `docs/mockups/` if it exists.
-
-**Mockup authority rule:** If `docs/mockups/` exists and contains files, those mockups are the visual source of truth for any frontend or UI work in this story. The planning team MUST inspect the relevant mockup files before proposing frontend changes and MUST preserve their layout, visual hierarchy, spacing, typography, color usage, component structure, interaction states, and responsive behavior unless the user explicitly asks for a deviation.
-
-When a story includes UI work, the planning document MUST:
-- List the exact mockup file(s) or folder(s) that apply to the story.
-- Translate mockup details into concrete implementation constraints, not vague design guidance.
-- Reference the applicable mockup(s) in every frontend task that creates or modifies UI.
-- Add completion criteria requiring the implemented UI to match the mockup(s) closely.
-- Flag any conflict between the user story, current codebase, and mockups before Phase 2 approval instead of silently choosing a different design.
-
-#### Step 5 — Announce the session
+7. Announce the session:
 
 ```
-📋 ARCHETIPO - USER STORY PLANNING (GitHub Projects)
+📋 ARCHETIPO - USER STORY PLANNING
 
 Il team di pianificazione è pronto.
 
@@ -131,7 +84,6 @@ Il team di pianificazione è pronto.
 🧪 Mina — Test Architect
 
 **User Story selezionata:** US-XXX: [titolo]
-**Issue:** #NN
 **Epic:** EP-XXX | **Priorità:** HIGH | **Story Points:** N
 
 **Story**
@@ -155,36 +107,15 @@ Avvio l'analisi...
 Emanuele analyzes the user story in depth:
 
 1. **Clarify the scope:** Identify what the story explicitly requires and what is out of scope
-2. **Map acceptance criteria:** For each acceptance criterion, identify:
-   - The specific behavior expected
-   - Inputs and outputs
-   - Error/validation scenarios
+2. **Map acceptance criteria:** For each acceptance criterion, identify the specific behavior expected, inputs/outputs, and error/validation scenarios
 3. **Identify implicit requirements:** Things not stated but necessary (e.g., logging, permissions, data validation)
 4. **Flag ambiguities:** List anything that could be interpreted in multiple ways
 
-Mina reviews the acceptance criteria from a testability perspective:
-- Are the criteria verifiable and measurable?
-- Are edge cases covered?
-- Suggests additional acceptance criteria if critical scenarios are missing
+Mina reviews the acceptance criteria from a testability perspective and suggests additions if critical scenarios are missing.
 
 **If critical ambiguities are found**, Emanuele asks the user (maximum 3 questions in a single message). Otherwise, proceed directly.
 
-Format:
-```
-🔎 **Emanuele:** Ho analizzato la story in dettaglio. Ecco cosa ho trovato:
-
-**Scope chiaro:**
-- [punto 1]
-- [punto 2]
-
-**Requisiti impliciti identificati:**
-- [requisito implicito 1]
-- [requisito implicito 2]
-
-🧪 **Mina:** Dal punto di vista della testabilità:
-- [osservazione 1]
-- [osservazione 2]
-```
+> **Note:** This analysis feeds Phase 2 and Phase 3 but does NOT produce a dedicated section in the final document. The insights are incorporated into the technical solution and task breakdown.
 
 ---
 
@@ -196,15 +127,8 @@ Format:
 Leonardo proposes the technical solution:
 
 1. **Analyze the codebase:** Read relevant existing files (models, controllers, services, tests) to understand the current architecture and patterns in use
-2. **Identify impacted components:** Which files/modules need to be created or modified
-3. **Design the solution:**
-   - Data model changes (new entities, fields, migrations)
-   - API changes (new endpoints, modified contracts)
-   - Business logic (use cases, services, validations)
-   - Frontend changes (new components, pages, state management)
-4. **Evaluate alternatives:** If there are multiple viable approaches, briefly describe each with pros/cons, then recommend one with clear justification
-
-For frontend/UI changes, Leonardo MUST treat the relevant `docs/mockups/` files as binding design input. Do not replace the mockup with a different layout, component composition, visual style, or interaction model for convenience. If the mockup is incomplete, plan only the missing behavior around it while preserving the visible design.
+2. **Design the solution:** Describe the technical approach and the motivation behind it. Use a brief introductory sentence followed by bullet points for the key decisions and changes across layers (data model, API, business logic, frontend). Do NOT create separate sub-sections per layer — keep it as a single flat list.
+3. **Evaluate alternatives:** If there are multiple viable approaches, briefly describe each with pros/cons, then recommend one with clear justification
 
 Ugo validates the solution from an implementation perspective:
 - Is this realistically implementable?
@@ -213,26 +137,47 @@ Ugo validates the solution from an implementation perspective:
 
 Emanuele validates that the solution covers all requirements identified in Phase 1.
 
-**Present the solution to the user for approval before proceeding:**
+**Present the solution to the user without waiting for approval:**
 
 ```
 📐 **Leonardo:** Ecco la soluzione tecnica che propongo:
 
-**Componenti impattati:**
-- [componente 1]: [tipo di modifica]
-- [componente 2]: [tipo di modifica]
-
-**Approccio scelto:** [descrizione sintetica]
-**Motivazione:** [perché questa soluzione]
+[Paragrafo unico con approccio e motivazione]
 
 🔧 **Ugo:** Dal punto di vista implementativo:
 - [osservazione 1]
 - [rischio o nota 1]
 
-**Vuoi procedere con questa soluzione o hai feedback?**
 ```
 
-**Wait for user approval before proceeding to Phase 3.**
+**Proceed to the next phase autonomously.**
+
+---
+
+### PHASE 2.5 — UI/UX Design Assessment
+
+**Main agent:** Leonardo 📐
+
+After defining the technical solution, Leonardo evaluates whether the user story requires developing **new user interface** — new pages, significant new UI components, or substantial changes to existing layouts.
+
+**If UI work is needed:**
+
+1. Leonardo announces the need:
+
+```
+📐 **Leonardo:** La soluzione tecnica prevede lo sviluppo di nuova interfaccia grafica. Avvio la creazione dei mockup in parallelo.
+```
+
+2. Spawn a **separate agent** (using the Agent tool) that invokes the `/archetipo-design` skill. The agent prompt must include:
+   - The full user story: code, title, story text, and acceptance criteria
+   - A summary of the technical solution designed in Phase 2 (relevant UI aspects)
+   - Any frontend framework or design system detected in the codebase
+   - Explicit instruction: **save all mockups in `docs/mockups/{US-CODE}/`**
+   - Explicit instruction: **analyze existing mockups in `docs/mockups/` and maintain visual consistency** with their style, color palette, typography, and layout patterns
+
+3. Set `mockup_generated = true` so Phase 4 includes a reference in the planning document.
+
+**If NO UI work is needed:** set `mockup_generated = false` and proceed directly to Phase 3.
 
 ---
 
@@ -247,15 +192,13 @@ Ugo breaks down the approved solution into concrete technical tasks:
    - Small enough to be completed in a single work session
    - Independently verifiable
    - Ordered by dependency (what must be done first)
-   - Clear about which files to create/modify
 
 2. **Task format:**
    - Sequential ID: TASK-01, TASK-02, ...
    - Title: clear and action-oriented
-   - Description: what to do concretely
-   - Files involved: list of files to create or modify
+   - Brief description: what to do concretely (1-2 sentences)
+   - Type: Impl or Test
    - Dependencies: which tasks must be completed before this one
-   - Estimated effort: S (< 30 min), M (30 min - 2h), L (2h - 4h)
 
 3. **Implementation order:** Tasks must be ordered so that:
    - Data model changes come first
@@ -265,11 +208,7 @@ Ugo breaks down the approved solution into concrete technical tasks:
 
 Mina adds test tasks:
 
-4. **Define test tasks:** For each implementation task (or group of related tasks), Mina defines:
-   - What type of test (unit, integration, e2e)
-   - What specifically to test
-   - Which test files to create/modify
-   - Test data or fixtures needed
+4. **Define test tasks:** For each implementation task (or group of related tasks), Mina defines the type of test (unit, integration, e2e) and what specifically to test. The test strategy section in the document should use bullet points listing each area to test and the type of test.
 
 Leonardo reviews the task list for architectural consistency and correct ordering.
 
@@ -288,8 +227,6 @@ After the team has completed their analysis, generate the planning document.
 
 **Generato da:** Archetipo Planning Team
 **Data:** {DATE}
-**Versione:** 1.0
-**GitHub Issue:** #{ISSUE_NUMBER}
 
 ---
 
@@ -306,246 +243,68 @@ After the team has completed their analysis, generate the planning document.
 
 ---
 
-## Analisi dei Requisiti
-
-> **Analista:** Emanuele 🔎
-
-### Scope
-
-{SCOPE_ANALYSIS}
-
-### Requisiti Impliciti
-
-{IMPLICIT_REQUIREMENTS}
-
-### Assunzioni
-
-{ASSUMPTIONS}
-
----
-
 ## Soluzione Tecnica
 
-> **Architetto:** Leonardo 📐
+{FRASE_INTRODUTTIVA_APPROCCIO_E_MOTIVAZIONE}
 
-### Approccio Scelto
-
-{CHOSEN_APPROACH}
-
-### Motivazione
-
-{APPROACH_RATIONALE}
-
-### Componenti Impattati
-
-| Componente | Tipo Modifica | Descrizione |
-|---|---|---|
-| {COMPONENT} | Nuovo / Modifica | {DESCRIPTION} |
-
-### Modifiche al Data Model
-
-{DATA_MODEL_CHANGES}
-
-### Modifiche alle API
-
-{API_CHANGES}
-
-### Modifiche al Frontend
-
-{FRONTEND_CHANGES}
+- {PUNTO_CHIAVE_1}
+- {PUNTO_CHIAVE_2}
+- {PUNTO_CHIAVE_3}
 
 ---
 
 ## Strategia di Test
 
-> **Test Architect:** Mina 🧪
+{FRASE_INTRODUTTIVA_STRATEGIA}
 
-### Copertura Test
-
-| Tipo Test | Cosa Testare | Priorità |
-|---|---|---|
-| Unit | {WHAT} | Alta |
-| Integration | {WHAT} | Media |
-| E2E | {WHAT} | Bassa |
-
-### Note sulla Strategia
-
-{TEST_STRATEGY_NOTES}
+- {PUNTO_TEST_1}
+- {PUNTO_TEST_2}
+- {PUNTO_TEST_3}
 
 ---
 
 ## Task di Implementazione
 
-> **Developer:** Ugo 🔧
-
-| # | Task | Descrizione | File Coinvolti | Dipendenze |
-|---|---|---|---|---|
-| TASK-01 | {TITLE} | {DESCRIPTION} | {FILES} | - |
-| TASK-02 | {TITLE} | {DESCRIPTION} | {FILES} | TASK-01 |
-| TASK-03 | {TITLE} | {DESCRIPTION} | {FILES} | TASK-02 |
-
-### Dettaglio Task
-
-#### TASK-01: {Title}
-
-**Tipo:** Implementazione / Test
-**Dipendenze:** nessuna / TASK-XX
-**Mockup di riferimento:** `{docs/mockups/...}` / nessuno
-**File coinvolti:**
-- `{file_path}` — {crea/modifica}: {cosa fare}
-
-**Descrizione:**
-{DETAILED_DESCRIPTION}
-
-**Criteri di completamento:**
-- [ ] {COMPLETION_CRITERION_1}
-- [ ] {COMPLETION_CRITERION_2}
-- [ ] Per task UI: layout, gerarchia visiva, spacing, tipografia, colori, componenti, stati e responsive behavior corrispondono ai mockup di riferimento in `docs/mockups/`
+| Stato | # | Task | Descrizione | Tipo | Dipendenze |
+|---|---|---|---|---|---|
+| TODO | TASK-01 | {TITLE} | {BRIEF_DESCRIPTION} | Impl | - |
+| TODO | TASK-02 | {TITLE} | {BRIEF_DESCRIPTION} | Test | TASK-01 |
+| TODO | TASK-03 | {TITLE} | {BRIEF_DESCRIPTION} | Impl | TASK-01 |
 
 ---
 
-[... remaining tasks ...]
-
----
-
-## Riepilogo
-
-| Metrica | Valore |
-|---|---|
-| Task totali | {N} |
-| Task implementazione | {N} |
-| Task test | {N} |
-| Effort stimato totale | {TOTAL_EFFORT} |
-
----
+{IF_MOCKUP_GENERATED}
+> 🎨 I mockup per questa storia sono disponibili in `docs/mockups/{US-CODE}/`
+{/IF_MOCKUP_GENERATED}
 
 _Piano generato via Archetipo Planning — {DATE}_
 ```
 
+> **Conditional block:** Include the mockup reference line only if `mockup_generated = true` (i.e., Phase 2.5 spawned the design agent). Omit it entirely otherwise — do not leave an empty placeholder.
+
 ---
 
-### PHASE 5 — Sub-Issues Creation, Issue Body Update & Label
+### PHASE 5 — Backlog Update
 
 After saving the planning document:
 
-#### Step 1 — Detect epic label
+1. **If mockup generation is in progress** (Phase 2.5 spawned a design agent), wait for it to complete before proceeding. Do not close the planning session while mockups are still being generated.
 
-Read the labels from the parent issue (fetched in Phase 0, Step 4). Identify the epic label matching exactly the stable-code pattern `EP-[0-9][0-9][0-9]`. Save it as `EPIC_LABEL` using the current environment's native variable mechanism — it will be applied to all sub-issues.
+2. **Update `docs/BACKLOG.md`:** Find the user story and add/update its status to `PLANNED`
+   - If the backlog uses a status field, update it
+   - If there is no status field, add `**Status:** PLANNED` to the story
 
-Do not use descriptive Epic names as labels. Valid: `EP-007`. Invalid: `EP-007: Growth: esportazioni, filtri e chiusura`.
-
-Validate before creating sub-issues:
-
-Required value: `EPIC_LABEL`. If it is empty or unresolved, stop before creating sub-issues and report that the parent story is missing a stable Epic label.
-
-#### Step 2 — Create `subtask` label
-
-```shell
-gh label create "subtask" --description "Technical subtask of a user story" --color "C2E0C6" --force
-```
-
-#### Step 3 — Create sub-issues for each TASK and link them to the parent
-
-For each TASK-XX defined in the implementation plan, perform these three sub-steps **in order**:
-
-**3.a — Create the child issue:**
-
-Write the child issue body to a temporary Markdown file first, using the current environment's native file-write mechanism, then pass it with `--body-file`. Do not inline long heredocs inside `--body`.
-
-```shell
-gh issue create --title "TASK-XX: {Task Title}" --label "subtask" --label "<EPIC_LABEL>" --body-file task-body.md
-```
-
-Capture the returned URL/number as `<CHILD_NUM>`.
-
-**3.b — Retrieve the child's database id (numeric, NOT the GraphQL node id):**
-
-```shell
-gh api repos/<OWNER>/<REPO>/issues/<CHILD_NUM> --jq .id
-```
-
-Save as `<CHILD_DATABASE_ID>`.
-
-**3.c — Link the child as a native sub-issue of the parent story:**
-
-```shell
-gh api -X POST repos/<OWNER>/<REPO>/issues/<PARENT_ISSUE_NUMBER>/sub_issues -F sub_issue_id=<CHILD_DATABASE_ID> -H "X-GitHub-Api-Version: 2022-11-28"
-```
-
-After this call, the parent issue page will show the child under the native **"Sub-issues"** section, and the child will display "Tracked in #N".
-
-**Critical:** `sub_issue_id` requires the issue's **database id (numeric)** returned by the REST API — confusing it with the GraphQL node id (`I_kwDO...`) is the most common cause of `422 Unprocessable Entity`.
-
-Collect all `<CHILD_NUM>` values for the final summary. Create sub-issues in TASK order (TASK-01 first, then TASK-02, etc.) so the GitHub UI lists them in logical order.
-
-#### Step 4 — Update the parent issue body with a pointer to the plan
-
-Sub-issues are already linked natively (Step 3.c). Do **not** add a `[tasklist]` block — it would duplicate the native "Sub-issues" panel. Just append a pointer to the planning document.
-
-1. Read the current body:
-   ```shell
-   gh issue view <NUMBER> --json body --jq '.body'
-   ```
-
-2. Build the updated body in a temporary Markdown file using the current environment's native file-write mechanism. The file must contain the current issue body followed by this planning pointer:
-
-   ```markdown
-   ---
-
-   ## 📋 Piano di Implementazione
-
-   **File:** `docs/planning/{US-CODE}.md`
-
-   **Riepilogo:**
-   - Task totali: {N} ({N} implementazione + {N} test)
-   - Effort stimato: {total}
-
-   I task sono linkati come sub-issue native (vedi sezione "Sub-issues" sopra).
-
-   _Generato da Archetipo Planning Team_
-   ```
-
-3. Update the issue:
-   ```shell
-   gh issue edit <NUMBER> --body-file updated-body.md
-   ```
-
-**Note:** The native sub-issues relation requires the database id (numeric) in the `sub_issues` endpoint, not the GraphQL node id. See Step 3.b/3.c.
-
-#### Step 5 — Add `planned` label and move Status to "Planned"
-
-```shell
-gh label create "planned" --description "Story has an implementation plan" --color "0E8A16" --force
-gh issue edit <NUMBER> --add-label "planned"
-```
-
-Move the item's Status to "Planned" on the project board:
-Validate `PROJECT_NODE_ID`, `ITEM_ID`, `STATUS_FIELD_ID`, and `PLANNED_OPTION_ID` first. If any value is empty or unresolved, stop before editing the project item.
-
-```shell
-gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<PLANNED_OPTION_ID>"
-```
-
-To get the `<ITEM_ID>`, search the project items fetched in Phase 0, Step 2 for the item matching this issue number.
-
-#### Step 6 — Confirm completion
+3. **Confirm completion:**
 
 ```
 ✅ Pianificazione completata!
 
 📁 docs/planning/{US-CODE}.md
-🔗 Issue: #NN — body aggiornato con link al piano; sub-issue native linkate
-
-📋 Sub-issues create: {N}
-{list each: - #NNN TASK-XX: {title}}
 
 📊 Riepilogo:
 - User Story: {US-CODE}: {title}
 - Task totali: {N} ({N} implementazione + {N} test)
-- Effort stimato: {total}
-- Label: `planned` ✅
-- Sub-issues: {N} create con label `subtask` + `{EPIC_LABEL}`
-- Status nel project: Planned ✅ (sarà spostato a In Progress da implement)
+- Stato nel backlog: PLANNED ✅
 ```
 
 ---
@@ -600,21 +359,3 @@ This ensures the plan is grounded in the actual codebase, not generic advice.
 **Existing planning file found:**
 - Ask the user: overwrite, create v2, or skip
 - Never silently overwrite existing plans
-
----
-
-## Technical Reference
-
-### IDs source
-
-Project number, project node ID, field IDs, and option IDs all come from `.archetipo/config.yaml` (Phase 0 Step 1). The only `gh project` call this skill makes is:
-
-```
-gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
-```
-
-If field/option IDs in the config no longer match the live project (project recreated, options rewritten outside Archetipo), stop and ask the user to re-run the setup script.
-
-### Item List Limit
-
-Always use `-L 200` with `gh project item-list` to avoid the default limit of 30 items.
