@@ -301,14 +301,15 @@ Proceed directly to Phase 5.
 After code review passes:
 
 1. **Run the full test suite** one final time to confirm everything works
-2. **Update `docs/BACKLOG.md`:** Find the user story and update its status to `DONE`
-3. **Confirm completion:**  
+2. **Update `docs/BACKLOG.md`:** Find the user story and update its status to `REVIEW`
+3. **Never mark the story as `DONE` directly.** `DONE` is reserved for a later explicit approval/completion step outside this skill.
+4. **Confirm completion:**  
 
 ```
 ✅ Implementazione completata!
 
 **User Story:** {US-CODE}: {title}
-**Stato:** DONE ✅
+**Stato:** REVIEW ✅
 
 **Riepilogo implementazione:**
 - Task completati: {N}/{N}
@@ -321,7 +322,7 @@ After code review passes:
 - `path/to/modified-file.ts` (modificato)
 - `path/to/test-file.test.ts` (nuovo)
 
-**Stato backlog aggiornato:** DONE ✅
+**Stato backlog aggiornato:** REVIEW ✅
 ```
 
 ---
