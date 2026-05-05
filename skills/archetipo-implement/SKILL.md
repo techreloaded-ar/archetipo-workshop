@@ -95,14 +95,16 @@ Puoi:
    - Among equal priorities, select the lowest story number
 
 3. Read the full issue body:
-   ```bash
+   ```shell
    gh issue view <NUMBER> --json body,title,labels,number,url
    ```
 
 #### Step 4 — Move to "In Progress"
 
 Update the item's Status to "In Progress":
-```bash
+Validate `PROJECT_NODE_ID`, `ITEM_ID`, `STATUS_FIELD_ID`, and `IN_PROGRESS_OPTION_ID` first. If any value is empty or unresolved, stop before editing the project item.
+
+```shell
 gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<IN_PROGRESS_OPTION_ID>"
 ```
 
@@ -344,13 +346,16 @@ After code review passes:
 1. **Run the full test suite** one final time to confirm everything works.
 
 2. **Move to "Review"** on the project board:
-   ```bash
+   Validate `PROJECT_NODE_ID`, `ITEM_ID`, `STATUS_FIELD_ID`, and `REVIEW_OPTION_ID` first. If any value is empty or unresolved, stop before editing the project item.
+
+   ```shell
    gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<REVIEW_OPTION_ID>"
    ```
 
 3. **Post a summary comment on the issue:**
-   ```bash
-   gh issue comment <NUMBER> --body "$(cat <<'EOF'
+   Create `implementation-summary.md` using the current environment's native file-write mechanism, then post it with `--body-file`. The file content should follow this template:
+
+   ```markdown
    ## ⚡ Implementazione Completata
 
    **Stato:** In Review
@@ -367,12 +372,14 @@ After code review passes:
    - `path/to/test-file.test.ts` (nuovo)
 
    _Implementato da Archetipo Implementation Team_
-   EOF
-   )"
+   ```
+
+   ```shell
+   gh issue comment <NUMBER> --body-file implementation-summary.md
    ```
 
 4. **Update labels:**
-   ```bash
+   ```shell
    gh label create "in-review" --description "Implementation complete, awaiting human review" --color "D93F0B" --force
    gh issue edit <NUMBER> --remove-label "planned" --add-label "in-review"
    ```

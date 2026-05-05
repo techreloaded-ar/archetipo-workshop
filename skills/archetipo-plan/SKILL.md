@@ -98,7 +98,7 @@ Tutte le story sono già pianificate o in lavorazione.
    - Among equal priorities, select the lowest story number
 
 3. Read the full issue body:
-   ```bash
+   ```shell
    gh issue view <NUMBER> --json body,title,labels,number,url
    ```
 
@@ -430,11 +430,17 @@ After saving the planning document:
 
 #### Step 1 — Detect epic label
 
-Read the labels from the parent issue (fetched in Phase 0, Step 4). Identify the epic label matching the pattern `EP-XXX`. Save it as `$EPIC_LABEL` — it will be applied to all sub-issues.
+Read the labels from the parent issue (fetched in Phase 0, Step 4). Identify the epic label matching exactly the stable-code pattern `EP-[0-9][0-9][0-9]`. Save it as `EPIC_LABEL` using the current environment's native variable mechanism — it will be applied to all sub-issues.
+
+Do not use descriptive Epic names as labels. Valid: `EP-007`. Invalid: `EP-007: Growth: esportazioni, filtri e chiusura`.
+
+Validate before creating sub-issues:
+
+Required value: `EPIC_LABEL`. If it is empty or unresolved, stop before creating sub-issues and report that the parent story is missing a stable Epic label.
 
 #### Step 2 — Create `subtask` label
 
-```bash
+```shell
 gh label create "subtask" --description "Technical subtask of a user story" --color "C2E0C6" --force
 ```
 
@@ -444,83 +450,51 @@ For each TASK-XX defined in the implementation plan, perform these three sub-ste
 
 **3.a — Create the child issue:**
 
-```bash
-gh issue create \
-  --title "TASK-XX: {Task Title}" \
-  --label "subtask" --label "$EPIC_LABEL" \
-  --body "$(cat <<'TASKEOF'
-**Parent Story:** #{PARENT_ISSUE_NUMBER} — {US-CODE}: {Story Title}
+Write the child issue body to a temporary Markdown file first, using the current environment's native file-write mechanism, then pass it with `--body-file`. Do not inline long heredocs inside `--body`.
 
-| Campo | Valore |
-|---|---|
-| **Tipo** | {Implementazione / Test} |
-| **Dipendenze** | {nessuna / TASK-YY} |
-| **Effort stimato** | {S / M / L} |
-
-## Descrizione
-
-{DETAILED_TASK_DESCRIPTION}
-
-## File Coinvolti
-
-- `{file_path}` — {crea/modifica}: {cosa fare}
-
-## Criteri di Completamento
-
-- [ ] {COMPLETION_CRITERION_1}
-- [ ] {COMPLETION_CRITERION_2}
-
----
-_Sub-issue generata da Archetipo Planning Team_
-TASKEOF
-)"
+```shell
+gh issue create --title "TASK-XX: {Task Title}" --label "subtask" --label "<EPIC_LABEL>" --body-file task-body.md
 ```
 
 Capture the returned URL/number as `<CHILD_NUM>`.
 
 **3.b — Retrieve the child's database id (numeric, NOT the GraphQL node id):**
 
-```bash
-gh api repos/$OWNER/$REPO/issues/<CHILD_NUM> --jq .id
+```shell
+gh api repos/<OWNER>/<REPO>/issues/<CHILD_NUM> --jq .id
 ```
 
 Save as `<CHILD_DATABASE_ID>`.
 
 **3.c — Link the child as a native sub-issue of the parent story:**
 
-```bash
-gh api -X POST \
-  repos/$OWNER/$REPO/issues/<PARENT_ISSUE_NUMBER>/sub_issues \
-  -F sub_issue_id=<CHILD_DATABASE_ID> \
-  -H "X-GitHub-Api-Version: 2022-11-28"
+```shell
+gh api -X POST repos/<OWNER>/<REPO>/issues/<PARENT_ISSUE_NUMBER>/sub_issues -F sub_issue_id=<CHILD_DATABASE_ID> -H "X-GitHub-Api-Version: 2022-11-28"
 ```
 
 After this call, the parent issue page will show the child under the native **"Sub-issues"** section, and the child will display "Tracked in #N".
 
 **Critical:** `sub_issue_id` requires the issue's **database id (numeric)** returned by the REST API — confusing it with the GraphQL node id (`I_kwDO...`) is the most common cause of `422 Unprocessable Entity`.
 
-Collect all `<CHILD_NUM>` values into `$SUB_ISSUES` for the final summary. Create sub-issues in TASK order (TASK-01 first, then TASK-02, etc.) so the GitHub UI lists them in logical order.
+Collect all `<CHILD_NUM>` values for the final summary. Create sub-issues in TASK order (TASK-01 first, then TASK-02, etc.) so the GitHub UI lists them in logical order.
 
 #### Step 4 — Update the parent issue body with a pointer to the plan
 
 Sub-issues are already linked natively (Step 3.c). Do **not** add a `[tasklist]` block — it would duplicate the native "Sub-issues" panel. Just append a pointer to the planning document.
 
 1. Read the current body:
-   ```bash
+   ```shell
    gh issue view <NUMBER> --json body --jq '.body'
    ```
 
-2. Build the updated body:
+2. Build the updated body in a temporary Markdown file using the current environment's native file-write mechanism. The file must contain the current issue body followed by this planning pointer:
 
-   ```bash
-   UPDATED_BODY=$(cat <<BODYEOF
-   ${CURRENT_BODY}
-
+   ```markdown
    ---
 
    ## 📋 Piano di Implementazione
 
-   **File:** \`docs/planning/{US-CODE}.md\`
+   **File:** `docs/planning/{US-CODE}.md`
 
    **Riepilogo:**
    - Task totali: {N} ({N} implementazione + {N} test)
@@ -529,26 +503,26 @@ Sub-issues are already linked natively (Step 3.c). Do **not** add a `[tasklist]`
    I task sono linkati come sub-issue native (vedi sezione "Sub-issues" sopra).
 
    _Generato da Archetipo Planning Team_
-   BODYEOF
-   )
    ```
 
 3. Update the issue:
-   ```bash
-   gh issue edit <NUMBER> --body "$UPDATED_BODY"
+   ```shell
+   gh issue edit <NUMBER> --body-file updated-body.md
    ```
 
 **Note:** The native sub-issues relation requires the database id (numeric) in the `sub_issues` endpoint, not the GraphQL node id. See Step 3.b/3.c.
 
 #### Step 5 — Add `planned` label and move Status to "Planned"
 
-```bash
+```shell
 gh label create "planned" --description "Story has an implementation plan" --color "0E8A16" --force
 gh issue edit <NUMBER> --add-label "planned"
 ```
 
 Move the item's Status to "Planned" on the project board:
-```bash
+Validate `PROJECT_NODE_ID`, `ITEM_ID`, `STATUS_FIELD_ID`, and `PLANNED_OPTION_ID` first. If any value is empty or unresolved, stop before editing the project item.
+
+```shell
 gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<PLANNED_OPTION_ID>"
 ```
 

@@ -177,13 +177,13 @@ Esegui prima lo script di setup per configurare il progetto GitHub e scrivere `.
 poi rilancia `/archetipo-spec`.
 ```
 
-Bind: `$OWNER`, `$PN`, `$PROJECT_NODE_ID`, `$STATUS_FIELD_ID`, `$TODO_OPTION_ID`, `$PRIORITY_FIELD_ID`, `$PRIORITY_*_OPTION_ID`, `$SP_FIELD_ID`, `$EPIC_FIELD_ID`.
+Bind these values using the current environment's native variable mechanism: `OWNER`, `PN`, `PROJECT_NODE_ID`, `STATUS_FIELD_ID`, `TODO_OPTION_ID`, `PRIORITY_FIELD_ID`, `PRIORITY_*_OPTION_ID`, `SP_FIELD_ID`, `EPIC_FIELD_ID`.
 
 #### Step 2 — Mode detection
 
 1. Count existing stories **on the configured project board** (not the whole repo) so issues that live in the same repo but on a different project are excluded.
 
-   **Intent:** fetch the project items as JSON via `gh project item-list "$PN" --owner "$OWNER" -L 500 --format json`, then count those whose `content.labels` contains `archetipo-spec`. Save as `$STORY_COUNT`.
+   **Intent:** fetch the project items as JSON via `gh project item-list <PN> --owner <OWNER> -L 500 --format json`, then count those whose `content.labels` contains `archetipo-spec`. Save the count as `STORY_COUNT`.
 
    **Filtering rule — important:** do **not** embed the literal string `"archetipo-spec"` inside a `--jq` expression. Nested quoting around that string has misfired across shells (e.g. on Windows bash) with `jq: function not defined: spec/0`, because the dash is parsed as subtraction once the surrounding quotes are stripped. Instead, parse the JSON natively in the host shell and filter there (PowerShell `ConvertFrom-Json` + `Where-Object { $_.content.labels -contains "archetipo-spec" }`, bash via a temp file + `python -c` / `node -e`, etc.). Pick whichever matches the current shell.
 
@@ -291,12 +291,13 @@ Skip in bootstrap mode.
 
 Read items **from the configured project board only**, then keep those tagged `archetipo-spec`.
 
-**Intent:** fetch with `gh project item-list "$PN" --owner "$OWNER" -L 500 --format json`, then filter items whose `content.labels` contains `archetipo-spec`, keeping `{number, title, labels}` per item.
+**Intent:** fetch with `gh project item-list <PN> --owner <OWNER> -L 500 --format json`, then filter items whose `content.labels` contains `archetipo-spec`, keeping `{number, title, labels}` per item.
 
 **Filtering rule — important:** same as Phase 0 Step 2 — do **not** embed the literal `"archetipo-spec"` inside a `--jq` expression (it has been mangled to `jq: function not defined: spec/0` by shell quoting). Filter natively in the host shell after parsing the JSON.
 
 From the result extract:
-- The set of existing epics (labels matching `EP-XXX: …`).
+- The set of existing epics from the Project `Epic` field values, e.g. `EP-007: Growth: esportazioni, filtri e chiusura`.
+- The set of existing epic labels only as stable codes matching exactly `EP-[0-9][0-9][0-9]`.
 - The max `US-XXX` number across all titles → next story numbering starts at `max + 1`.
 - The personas and tone used in existing story titles (for language consistency).
 
@@ -334,76 +335,96 @@ Ask for confirmation. The user may edit titles, ACs, SP, priority, or epic assig
 
 Iterate over: bootstrap = full plan in priority order (HIGH → MEDIUM → LOW); extend = user-confirmed new stories.
 
+#### GitHub CLI rules
+
+- Keep two separate Epic identifiers:
+  - **Project Epic option:** descriptive name, e.g. `EP-007: Growth: esportazioni, filtri e chiusura`
+  - **Repository label:** stable code only, e.g. `EP-007`
+- Never pass descriptive Epic names as issue labels. GitHub CLI treats commas in `--label` values as separators, which breaks labels such as `EP-007: Growth: esportazioni, filtri e chiusura`.
+- Use `--body-file` for issue bodies. Avoid inline heredocs inside `--body`; long Markdown and shell quoting are fragile.
+- For GraphQL variables that are arrays or objects, use `gh api graphql --input <payload-file>`. Do not use `-f opts='[...]'`: `-f/--raw-field` sends strings, not JSON arrays.
+- Validate every field id and option id before creating issues. If any required id is missing, stop before creating partial backlog state.
+- Keep command examples portable across Bash, zsh, PowerShell, and cmd: avoid heredocs, `cat`, `test`, command substitution, and shell-specific line continuations. Prefer one-line `gh` commands plus temporary files created with the execution environment's native file-write mechanism.
+
 #### Step 1 — Sync Epic field options
 
 Compute the union of (epic options currently on the project) ∪ (epics referenced in the stories about to be created). For each new epic:
 
 1. Add an option `EP-XXX: [Epic Title]` to the Epic single-select field. Use `updateProjectV2Field` (replaces all options — pass the full union):
 
-   ```bash
-   gh api graphql -f query='
-     mutation($f:ID!,$opts:[ProjectV2SingleSelectFieldOptionInput!]!){
-       updateProjectV2Field(input:{fieldId:$f, singleSelectOptions:$opts}){
-         projectV2Field { ... on ProjectV2SingleSelectField { id options { id name } } }
-       }
-     }' \
-     -f f="$EPIC_FIELD_ID" \
-     -f opts='[ {"name":"EP-001: ...","color":"GRAY","description":""}, ... ]'
+   ```json
+   {
+     "query": "mutation($f:ID!,$opts:[ProjectV2SingleSelectFieldOptionInput!]!){ updateProjectV2Field(input:{fieldId:$f, singleSelectOptions:$opts}){ projectV2Field { ... on ProjectV2SingleSelectField { id options { id name } } } } }",
+     "variables": {
+       "f": "EPIC_FIELD_ID",
+       "opts": [
+         { "name": "EP-001: Backoffice operativo", "color": "GRAY", "description": "" },
+         { "name": "EP-002: Consuntivazione ore", "color": "GRAY", "description": "" }
+       ]
+     }
+   }
+   ```
+
+   Save that payload to a temporary file using the current environment's native file-write mechanism, then run:
+
+   ```shell
+   gh api graphql --input payload.json
    ```
 
 2. Read the response and cache `EP-XXX → option_id` for Step 4 below.
 
-3. Create or update the matching repo label (idempotent):
-   ```bash
-   gh label create "EP-XXX: [Epic Title]" --description "Epic XXX" --color C0C0C0 --force
+3. Create or update the matching repo label (idempotent). The label name must be the Epic code only:
+   ```shell
+   gh label create "EP-XXX" --description "[Epic Title]" --color C0C0C0 --force
    ```
 
-> ⚠️ Use `-f` (string) for GraphQL variables. The `updateProjectV2Field` mutation **replaces all options** — always pass the full set.
+> ⚠️ The `updateProjectV2Field` mutation **replaces all options** — always pass the full set. Use a JSON payload with `--input` so `opts` is sent as an array, not as a string.
+
+4. Validate all required ids before creating any issue. Required values: `EPIC_FIELD_ID`, `EPIC_OPTION_ID`, `TODO_OPTION_ID`, and `PRIORITY_OPTION_ID`. If any value is empty or unresolved, stop before creating the issue and report the missing value.
 
 #### Step 2 — Create the issue
 
-```bash
-gh issue create \
-  --title "US-XXX: [Story Title]" \
-  --label "archetipo-spec" \
-  --label "EP-XXX: [Epic Title]" \
-  --body "$(cat <<'EOF'
-[Story body — see template in the Authoring Guide]
-EOF
-)"
+```shell
+gh issue create --title "US-XXX: [Story Title]" --label "archetipo-spec" --label "EP-XXX" --body-file story-body.md
 ```
 
 Capture the issue number returned.
 
 #### Step 3 — Add to the project board
 
-```bash
-ISSUE_NODE_ID=$(gh issue view <NUMBER> --json id --jq .id)
-gh api graphql -f query='mutation($p:ID!,$c:ID!){addProjectV2ItemById(input:{projectId:$p,contentId:$c}){item{id}}}' \
-  -F p="$PROJECT_NODE_ID" -F c="$ISSUE_NODE_ID"
+Read the issue node id and store it using the current environment's native variable mechanism:
+
+```shell
+gh issue view <NUMBER> --json id --jq .id
 ```
 
-Save the returned `item.id` as `$ITEM_ID`.
+Then add it to the project:
+
+```shell
+gh api graphql -f query='mutation($p:ID!,$c:ID!){addProjectV2ItemById(input:{projectId:$p,contentId:$c}){item{id}}}' -F p="<PROJECT_NODE_ID>" -F c="<ISSUE_NODE_ID>"
+```
+
+Save the returned `item.id` as `ITEM_ID` using the current environment's native variable mechanism.
 
 #### Step 4 — Set custom field values
 
 Four edits per item, using IDs cached from `.archetipo/config.yaml` and Step 1:
 
-```bash
+```shell
 # Status = Todo
-gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$TODO_OPTION_ID"
+gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<TODO_OPTION_ID>"
 
 # Priority
-gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$PRIORITY_FIELD_ID" --single-select-option-id "$PRIORITY_OPTION_ID"
+gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<PRIORITY_FIELD_ID>" --single-select-option-id "<PRIORITY_OPTION_ID>"
 
 # Story Points
-gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$SP_FIELD_ID" --number <N>
+gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<SP_FIELD_ID>" --number <N>
 
 # Epic
-gh project item-edit --project-id "$PROJECT_NODE_ID" --id "$ITEM_ID" --field-id "$EPIC_FIELD_ID" --single-select-option-id "$EPIC_OPTION_ID"
+gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<EPIC_FIELD_ID>" --single-select-option-id "<EPIC_OPTION_ID>"
 ```
 
-Run gh commands **sequentially**, one story at a time. No parallel tool calls. If a single command fails, continue and report at the end.
+Run gh commands **sequentially**, one story at a time. No parallel tool calls. If preparation fails (missing label, field id, or option id), stop before creating the issue. If a post-creation command fails, continue with the next story and report at the end.
 
 ---
 
