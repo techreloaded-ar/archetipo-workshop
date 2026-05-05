@@ -6,21 +6,25 @@
   <title>ARchetipo Viewer</title>
   <style>
     :root {
-      --ink: #1f2521;
-      --muted: #66736c;
-      --paper: #f6f1e8;
-      --paper-2: #fffaf1;
-      --line: #d9cdbb;
-      --green: #2f6f4f;
-      --green-soft: #e6f0e6;
-      --blue: #255b7d;
-      --blue-soft: #e3edf2;
-      --amber: #a76020;
-      --amber-soft: #f6e8ce;
-      --red: #9b3d33;
-      --red-soft: #f1ded8;
-      --shadow: 0 20px 70px rgba(47, 39, 28, .13);
+      --ink: #172b4d;
+      --muted: #5e6c84;
+      --paper: #f4f5f7;
+      --paper-2: #ffffff;
+      --line: #dfe1e6;
+      --line-strong: #c1c7d0;
+      --blue: #0c66e4;
+      --blue-soft: #e9f2ff;
+      --green: #216e4e;
+      --green-soft: #dffcf0;
+      --amber: #946f00;
+      --amber-soft: #fff0b3;
+      --purple: #5e4db2;
+      --purple-soft: #f3f0ff;
+      --red: #ae2a19;
+      --red-soft: #ffebe6;
+      --shadow: 0 8px 24px rgba(9, 30, 66, .12);
       --radius: 8px;
+      --font-body: "Aptos", "Segoe UI", sans-serif;
     }
 
     * { box-sizing: border-box; }
@@ -28,45 +32,47 @@
     body {
       margin: 0;
       color: var(--ink);
-      background:
-        linear-gradient(90deg, rgba(31, 37, 33, .035) 1px, transparent 1px) 0 0 / 24px 24px,
-        linear-gradient(rgba(31, 37, 33, .025) 1px, transparent 1px) 0 0 / 24px 24px,
-        radial-gradient(circle at 18% 8%, rgba(47, 111, 79, .17), transparent 32%),
-        linear-gradient(135deg, #fbf7ee 0%, #efe5d3 100%);
-      font-family: "Aptos", "Segoe UI", sans-serif;
+      background: var(--paper);
+      font-family: var(--font-body);
       min-height: 100vh;
     }
 
     button, input, select { font: inherit; }
 
     .shell {
-      width: min(1800px, calc(100vw - 32px));
+      width: 100%;
+      min-height: 100vh;
+      margin: 0;
+      padding: 18px 20px 24px;
+    }
+
+    .workspace {
+      width: min(1800px, 100%);
       margin: 0 auto;
-      padding: 28px 0;
+      min-width: 0;
     }
 
     .topbar {
       display: grid;
       grid-template-columns: minmax(280px, 1fr) auto;
-      gap: 18px;
-      align-items: start;
-      margin-bottom: 18px;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 12px;
     }
 
     .brand {
-      padding: 20px 22px;
-      background: rgba(255, 250, 241, .82);
+      padding: 12px 14px;
+      background: var(--paper-2);
       border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(16px);
+      border-radius: var(--radius);
+      box-shadow: 0 1px 0 rgba(9, 30, 66, .08);
     }
 
     h1 {
-      margin: 8px 0 6px;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(32px, 4vw, 64px);
-      line-height: .92;
-      font-weight: 700;
+      margin: 0;
+      font-size: clamp(24px, 3vw, 36px);
+      line-height: 1.05;
+      font-weight: 800;
       letter-spacing: 0;
     }
 
@@ -74,11 +80,8 @@
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
-      gap: 10px;
-      padding: 14px;
-      background: rgba(31, 37, 33, .88);
-      border: 1px solid rgba(255, 250, 241, .18);
-      box-shadow: var(--shadow);
+      gap: 8px;
+      padding: 0;
     }
 
     .btn, .icon-btn {
@@ -93,13 +96,15 @@
       background: var(--paper-2);
       color: var(--ink);
       cursor: pointer;
-      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+      font-weight: 700;
+      transition: background .16s ease, box-shadow .16s ease, border-color .16s ease;
     }
 
-    .btn:hover, .icon-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0, 0, 0, .12); }
-    .btn.primary { background: #d7f0c9; border-color: #9bc180; font-weight: 800; }
-    .btn.dark { background: #2f6f4f; color: #fffaf1; border-color: #2f6f4f; }
-    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn:hover, .icon-btn:hover { background: #f7f8f9; box-shadow: 0 2px 8px rgba(9, 30, 66, .14); }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 800; }
+    .btn.primary:hover { background: #0052cc; }
+    .btn.dark { background: #172b4d; color: #fff; border-color: #172b4d; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
     .icon { width: 18px; height: 18px; flex: 0 0 auto; }
 
     .statusbar {
@@ -107,12 +112,14 @@
       grid-template-columns: 1fr auto;
       gap: 12px;
       align-items: center;
-      margin: 0 0 18px;
+      margin: 0 0 12px;
       padding: 12px 14px;
-      background: rgba(255, 250, 241, .76);
+      background: var(--paper-2);
       border: 1px solid var(--line);
+      border-radius: var(--radius);
       color: var(--muted);
       min-height: 50px;
+      box-shadow: 0 1px 0 rgba(9, 30, 66, .08);
     }
 
     .statusbar strong { color: var(--ink); }
@@ -130,7 +137,7 @@
       padding: 0 10px;
       border-radius: 999px;
       border: 1px solid var(--line);
-      background: var(--paper-2);
+      background: #f7f8f9;
       color: var(--muted);
       font-size: 12px;
       font-weight: 800;
@@ -140,18 +147,20 @@
     .filters {
       display: grid;
       grid-template-columns: minmax(220px, 1fr) 190px 190px;
-      gap: 10px;
-      margin-bottom: 18px;
+      gap: 8px;
+      margin-bottom: 14px;
     }
 
     .field {
       display: flex;
       align-items: center;
       gap: 8px;
-      background: rgba(255, 250, 241, .82);
+      background: var(--paper-2);
       border: 1px solid var(--line);
+      border-radius: 6px;
       padding: 8px 10px;
       min-height: 46px;
+      box-shadow: 0 1px 0 rgba(9, 30, 66, .06);
     }
 
     .field input, .field select {
@@ -164,8 +173,8 @@
 
     .board {
       display: grid;
-      grid-template-columns: repeat(5, minmax(260px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(5, minmax(270px, 1fr));
+      gap: 12px;
       align-items: start;
       overflow-x: auto;
       padding-bottom: 10px;
@@ -173,13 +182,14 @@
 
     .column {
       min-width: 290px;
-      background: rgba(255, 250, 241, .66);
-      border: 1px solid var(--line);
-      box-shadow: 0 14px 44px rgba(47, 39, 28, .08);
+      background: #ebecf0;
+      border: 1px solid #ebecf0;
+      border-radius: var(--radius);
+      box-shadow: none;
     }
 
     .column.drag-over {
-      outline: 3px solid rgba(47, 111, 79, .35);
+      outline: 3px solid rgba(12, 102, 228, .35);
       outline-offset: 2px;
     }
 
@@ -191,10 +201,10 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 14px;
-      background: rgba(255, 250, 241, .94);
-      border-bottom: 1px solid var(--line);
-      backdrop-filter: blur(14px);
+      padding: 12px 12px 8px;
+      background: #ebecf0;
+      border-bottom: 0;
+      border-radius: var(--radius) var(--radius) 0 0;
     }
 
     .column-title {
@@ -205,53 +215,57 @@
     }
 
     .stripe {
-      width: 8px;
-      height: 34px;
-      border-radius: 5px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
       background: var(--muted);
     }
 
     .column h2 {
       margin: 0;
-      font-size: 16px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
       letter-spacing: 0;
     }
 
     .column-count {
-      min-width: 34px;
-      height: 30px;
+      min-width: 26px;
+      height: 24px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       border: 1px solid var(--line);
-      background: var(--paper);
+      background: #dfe1e6;
       border-radius: 999px;
       font-weight: 900;
+      color: var(--muted);
+      font-size: 12px;
     }
 
     .cards {
       min-height: 220px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 12px;
+      gap: 8px;
+      padding: 0 8px 8px;
     }
 
     .card {
       position: relative;
-      border: 1px solid rgba(31, 37, 33, .18);
+      border: 1px solid rgba(9, 30, 66, .08);
       background: var(--paper-2);
       border-radius: var(--radius);
-      box-shadow: 0 8px 18px rgba(47, 39, 28, .08);
-      padding: 13px;
+      box-shadow: 0 1px 2px rgba(9, 30, 66, .2);
+      padding: 12px;
       cursor: grab;
-      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      transition: box-shadow .18s ease, border-color .18s ease, background .18s ease;
     }
 
     .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 18px 34px rgba(47, 39, 28, .14);
-      border-color: rgba(47, 111, 79, .5);
+      box-shadow: 0 6px 16px rgba(9, 30, 66, .18);
+      border-color: rgba(12, 102, 228, .38);
     }
 
     .card:active { cursor: grabbing; }
@@ -267,10 +281,9 @@
 
     .code {
       display: inline-flex;
-      padding: 4px 8px;
-      background: #1f2521;
-      color: #fffaf1;
-      border-radius: 4px;
+      background: transparent;
+      color: var(--blue);
+      border-radius: 0;
       font-size: 12px;
       font-weight: 900;
     }
@@ -289,8 +302,9 @@
 
     .card h3 {
       margin: 0 0 10px;
-      font-size: 18px;
-      line-height: 1.15;
+      font-size: 15px;
+      line-height: 1.28;
+      font-weight: 750;
       letter-spacing: 0;
     }
 
@@ -304,6 +318,20 @@
       margin-bottom: 10px;
     }
 
+    .meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .meta span::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--line-strong);
+      content: "";
+    }
+
     .story {
       color: #3f4943;
       font-size: 13px;
@@ -314,7 +342,7 @@
     .tasks {
       margin-top: 10px;
       padding-top: 10px;
-      border-top: 1px dashed var(--line);
+      border-top: 1px solid var(--line);
     }
 
     .task-summary {
@@ -330,7 +358,7 @@
     .task-list {
       display: grid;
       gap: 7px;
-      max-height: 180px;
+      max-height: 158px;
       overflow: auto;
       padding-right: 4px;
     }
@@ -355,15 +383,59 @@
       border: 1px solid var(--line);
     }
 
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .issue-type {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .issue-type::before {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background: var(--green);
+      content: "";
+      box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .45);
+    }
+
+    .avatar-stack {
+      display: flex;
+      align-items: center;
+    }
+
+    .avatar {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      border: 2px solid #fff;
+      border-radius: 999px;
+      background: #deebff;
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 900;
+    }
+
     .drawer {
       position: fixed;
       inset: auto 18px 18px auto;
       width: min(620px, calc(100vw - 36px));
       max-height: min(760px, calc(100vh - 36px));
       overflow: auto;
-      background: #fffaf1;
-      border: 1px solid rgba(31, 37, 33, .2);
-      box-shadow: 0 30px 90px rgba(31, 37, 33, .22);
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      box-shadow: 0 30px 90px rgba(9, 30, 66, .24);
       border-radius: var(--radius);
       padding: 18px;
       z-index: 20;
@@ -389,9 +461,8 @@
 
     .drawer h2 {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 30px;
-      line-height: 1;
+      font-size: 26px;
+      line-height: 1.08;
     }
 
     .detail-section {
@@ -420,17 +491,18 @@
       color: var(--muted);
       text-align: center;
       border: 1px dashed var(--line);
-      background: rgba(255, 250, 241, .5);
+      background: rgba(255, 255, 255, .45);
       border-radius: var(--radius);
     }
 
     .notice {
       display: none;
-      margin-bottom: 18px;
-      padding: 18px;
+      margin-bottom: 12px;
+      padding: 14px;
       border: 1px solid rgba(155, 61, 51, .24);
       background: var(--red-soft);
       color: var(--red);
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
     }
 
@@ -441,8 +513,8 @@
       left: 50%;
       bottom: 22px;
       transform: translateX(-50%) translateY(20px);
-      background: #1f2521;
-      color: #fffaf1;
+      background: #172b4d;
+      color: #fff;
       padding: 12px 16px;
       border-radius: 999px;
       opacity: 0;
@@ -458,6 +530,7 @@
     }
 
     @media (max-width: 980px) {
+      .shell { padding: 14px; }
       .topbar, .statusbar, .filters { grid-template-columns: 1fr; }
       .toolbar { justify-content: stretch; }
       .toolbar .btn { flex: 1 1 180px; }
@@ -467,47 +540,49 @@
 </head>
 <body>
   <main class="shell">
-    <section class="topbar">
-      <div class="brand">
-        <h1>ARchetipo Viewer</h1>
-      </div>
-      <div class="toolbar" aria-label="Azioni principali">
-        <button class="btn primary" id="openProject" type="button" title="Seleziona la cartella root del progetto">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h5l2 2h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 7V5a2 2 0 0 1 2-2h3l2 2h4"/></svg>
-          Apri progetto
-        </button>
-        <button class="btn" id="reload" type="button" disabled title="Rilegge backlog e planning">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
-          Ricarica
-        </button>
-        <button class="btn dark" id="save" type="button" disabled title="Salva su docs/BACKLOG.md">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M17 21v-7H7v7"/><path d="M7 3v5h8"/></svg>
-          Salva
-        </button>
-      </div>
+    <section class="workspace">
+      <section class="topbar">
+        <div class="brand">
+          <h1>ARchetipo Viewer</h1>
+        </div>
+        <div class="toolbar" aria-label="Azioni principali">
+          <button class="btn primary" id="openProject" type="button" title="Seleziona la cartella root del progetto">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h5l2 2h11v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 7V5a2 2 0 0 1 2-2h3l2 2h4"/></svg>
+            Apri progetto
+          </button>
+          <button class="btn" id="reload" type="button" disabled title="Rilegge backlog e planning">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
+            Ricarica
+          </button>
+          <button class="btn dark" id="save" type="button" disabled title="Salva su docs/BACKLOG.md">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M17 21v-7H7v7"/><path d="M7 3v5h8"/></svg>
+            Salva
+          </button>
+        </div>
+      </section>
+
+      <div class="notice" id="notice"></div>
+
+      <section class="statusbar">
+        <div id="statusText">Apertura della root di progetto predefinita...</div>
+        <div class="stats" id="stats"></div>
+      </section>
+
+      <section class="filters" aria-label="Filtri">
+        <label class="field">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <input id="search" type="search" placeholder="Cerca storia, epic, testo o task">
+        </label>
+        <label class="field">
+          <select id="epicFilter" aria-label="Filtro epic"><option value="">Tutti gli epic</option></select>
+        </label>
+        <label class="field">
+          <select id="priorityFilter" aria-label="Filtro priorita"><option value="">Tutte le priorita</option></select>
+        </label>
+      </section>
+
+      <section class="board" id="board" aria-label="Kanban backlog"></section>
     </section>
-
-    <div class="notice" id="notice"></div>
-
-    <section class="statusbar">
-      <div id="statusText">Apertura della root di progetto predefinita...</div>
-      <div class="stats" id="stats"></div>
-    </section>
-
-    <section class="filters" aria-label="Filtri">
-      <label class="field">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
-        <input id="search" type="search" placeholder="Cerca storia, epic, testo o task">
-      </label>
-      <label class="field">
-        <select id="epicFilter" aria-label="Filtro epic"><option value="">Tutti gli epic</option></select>
-      </label>
-      <label class="field">
-        <select id="priorityFilter" aria-label="Filtro priorita"><option value="">Tutte le priorita</option></select>
-      </label>
-    </section>
-
-    <section class="board" id="board" aria-label="Kanban backlog"></section>
   </main>
 
   <aside class="drawer" id="drawer" aria-live="polite"></aside>
@@ -515,11 +590,11 @@
 
   <script>
     const STATUSES = [
-      { key: "TODO", label: "TODO", color: "#66736c" },
-      { key: "PLANNED", label: "PLANNED", color: "#255b7d" },
-      { key: "IN PROGRESS", label: "IN PROGRESS", color: "#a76020" },
-      { key: "REVIEW", label: "REVIEW", color: "#8b5a9a" },
-      { key: "DONE", label: "DONE", color: "#2f6f4f" }
+      { key: "TODO", label: "To do", color: "#626f86" },
+      { key: "PLANNED", label: "Planned", color: "#0c66e4" },
+      { key: "IN PROGRESS", label: "In progress", color: "#946f00" },
+      { key: "REVIEW", label: "Review", color: "#5e4db2" },
+      { key: "DONE", label: "Done", color: "#216e4e" }
     ];
 
     const state = {
@@ -863,7 +938,7 @@
     }
 
     function cardTemplate(story) {
-      const priorityClass = story.priority.toLowerCase();
+      const priorityClass = story.priority.toLowerCase().replace(/[^a-z0-9-]/g, "-");
       const tasks = story.tasks.slice(0, 5).map(task => `
         <div class="task"><span class="task-state">${escapeHtml(task.state)}</span><span>${escapeHtml(task.id)} · ${escapeHtml(task.title)}</span></div>
       `).join("");
@@ -881,6 +956,10 @@
           <div class="tasks">
             <div class="task-summary"><span>Task planning</span><span>${story.tasks.length}</span></div>
             <div class="task-list">${tasks || `<span class="story">Nessun file docs/planning/${story.id}.md trovato.</span>`}</div>
+          </div>
+          <div class="card-footer">
+            <span class="issue-type">Story</span>
+            <span class="avatar-stack"><span class="avatar">${escapeHtml(story.epic.replace(/[^A-Z0-9]/gi, "").slice(-2) || "AR")}</span></span>
           </div>
         </article>
       `;
