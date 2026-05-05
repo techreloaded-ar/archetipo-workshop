@@ -56,6 +56,8 @@ Apri [http://localhost:3000](http://localhost:3000).
 - Un account **GitHub** (per fare la fork e per il login OAuth)
 - Un account **Supabase** gratuito ([supabase.com](https://supabase.com))
 
+Il setup e le skill Archetipo usano una CLI locale cross-platform (`node .archetipo/cli/archetipo.mjs`) che delega autenticazione e API a GitHub CLI, evitando differenze fragili tra Bash e PowerShell.
+
 ---
 
 ### Step 1 — Fork e clone del repository

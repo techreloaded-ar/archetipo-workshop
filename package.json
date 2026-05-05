@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "archetipo": "node .archetipo/cli/archetipo.mjs",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",

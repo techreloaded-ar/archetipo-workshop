@@ -29,19 +29,15 @@ You are the facilitator of a **user story implementation** session assisted by a
 
 Upon activation:
 
-#### Step 1 — Load `.archetipo/config.yaml`
+#### Step 1 — Validate Archetipo GitHub setup
 
-Read `.archetipo/config.yaml`. Required keys:
+The setup script writes `.archetipo/config.yaml`, and `.archetipo/cli/archetipo.mjs` owns GitHub Projects mechanics. Validate setup by running:
 
-- `github.owner`
-- `github.project_number`
-- `github.project_node_id`
-- `github.fields.status.id` + `options.{todo, planned, in_progress, review, done}`
-- `github.fields.priority.id` + `options.{high, medium, low}`
-- `github.fields.story_points.id`
-- `github.fields.epic.id`
+```shell
+node .archetipo/cli/archetipo.mjs project-items --status planned --json
+```
 
-If the file is missing or any required key is unset, **stop**:
+If `.archetipo/config.yaml` is missing, incomplete, or the command fails with a setup/config error, **stop**:
 
 ```
 🔧 **Ugo:** Configurazione Archetipo incompleta o assente.
@@ -50,28 +46,18 @@ Esegui prima lo script di setup per configurare il GitHub Project e scrivere
 `.archetipo/config.yaml`, poi rilancia `/archetipo-implement`.
 ```
 
-From the config, hold the following values for use in later steps (binding mechanism — bash variable, PowerShell variable, in-context placeholder — is up to the executing shell):
-
-- `<OWNER>`, `<PROJECT_NUMBER>`, `<PROJECT_NODE_ID>`
-- `<STATUS_FIELD_ID>` and the five option ids: `<TODO_OPTION_ID>`, `<PLANNED_OPTION_ID>`, `<IN_PROGRESS_OPTION_ID>`, `<REVIEW_OPTION_ID>`, `<DONE_OPTION_ID>`
-- `<PRIORITY_FIELD_ID>` and `<PRIORITY_HIGH_OPTION_ID>`, `<PRIORITY_MEDIUM_OPTION_ID>`, `<PRIORITY_LOW_OPTION_ID>`
-- `<SP_FIELD_ID>`
-- `<EPIC_FIELD_ID>`
-
-> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by the setup script. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run the setup script.
+> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by the setup script and CLI. If the CLI reports a scope error, stop and ask the user to run `gh auth refresh -s read:project -s project`, then re-run setup.
 
 #### Step 2 — Fetch and filter items
 
-1. Fetch all items:
+1. Fetch all Planned items:
    ```
-   gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
+   node .archetipo/cli/archetipo.mjs project-items --status planned --json
    ```
 
-2. Filter to items where Status matches `<PLANNED_OPTION_ID>` (match by option id, not by display name).
+2. Filter candidates locally where `docs/planning/{US-CODE}.md` exists.
 
-3. For each candidate, verify that `docs/planning/{US-CODE}.md` exists locally.
-
-4. If no eligible items found (Planned status + local plan), inform the user and **stop**:
+3. If no eligible items found (Planned status + local plan), inform the user and **stop**:
 ```
 🔧 **Ugo:** Non ci sono story pronte per l'implementazione.
 
@@ -96,16 +82,15 @@ Puoi:
 
 3. Read the full issue body:
    ```shell
-   gh issue view <NUMBER> --json body,title,labels,number,url
+   node .archetipo/cli/archetipo.mjs issue-view --issue <NUMBER> --json
    ```
 
 #### Step 4 — Move to "In Progress"
 
 Update the item's Status to "In Progress":
-Validate `PROJECT_NODE_ID`, `ITEM_ID`, `STATUS_FIELD_ID`, and `IN_PROGRESS_OPTION_ID` first. If any value is empty or unresolved, stop before editing the project item.
 
 ```shell
-gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<IN_PROGRESS_OPTION_ID>"
+node .archetipo/cli/archetipo.mjs move-story --issue <NUMBER> --status in_progress --json
 ```
 
 #### Step 5 — Load context
@@ -346,14 +331,13 @@ After code review passes:
 1. **Run the full test suite** one final time to confirm everything works.
 
 2. **Move to "Review"** on the project board:
-   Validate `PROJECT_NODE_ID`, `ITEM_ID`, `STATUS_FIELD_ID`, and `REVIEW_OPTION_ID` first. If any value is empty or unresolved, stop before editing the project item.
 
    ```shell
-   gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<REVIEW_OPTION_ID>"
+   node .archetipo/cli/archetipo.mjs move-story --issue <NUMBER> --status review --json
    ```
 
 3. **Post a summary comment on the issue:**
-   Create `implementation-summary.md` using the current environment's native file-write mechanism, then post it with `--body-file`. The file content should follow this template:
+   Create `implementation-summary.md` using the current environment's native file-write mechanism, then post it through the CLI. The file content should follow this template:
 
    ```markdown
    ## ⚡ Implementazione Completata
@@ -375,14 +359,11 @@ After code review passes:
    ```
 
    ```shell
-   gh issue comment <NUMBER> --body-file implementation-summary.md
+   node .archetipo/cli/archetipo.mjs comment-story --issue <NUMBER> --body-file implementation-summary.md --json
    ```
 
 4. **Update labels:**
-   ```shell
-   gh label create "in-review" --description "Implementation complete, awaiting human review" --color "D93F0B" --force
-   gh issue edit <NUMBER> --remove-label "planned" --add-label "in-review"
-   ```
+   Use the CLI for project movement and comment posting. If label updates are required, prefer a future CLI command rather than adding raw multi-step GitHub shell logic to this skill.
 
 5. **Confirm completion:**
 
@@ -478,17 +459,17 @@ To maximize the amount of work that fits within a single session:
 
 ### IDs source
 
-Project number, project node ID, field IDs, and option IDs all come from `.archetipo/config.yaml` (Phase 0 Step 1). The only `gh project` call this skill makes is:
+Project number, project node ID, field IDs, and option IDs all come from `.archetipo/config.yaml`, but this skill should access them through `.archetipo/cli/archetipo.mjs`. Use:
 
 ```
-gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
+node .archetipo/cli/archetipo.mjs project-items --status planned --json
 ```
 
-Always use `--format json` for machine-parseable output. If field/option IDs in the config no longer match the live project, stop and ask the user to re-run the setup script.
+If field/option IDs in the config no longer match the live project, stop and ask the user to re-run the setup script.
 
 ### Item List Limit
 
-Always use `-L 200` with `gh project item-list` to avoid the default limit of 30 items.
+The CLI uses an explicit item limit and compact JSON output to avoid the default GitHub CLI cap.
 
 ### Status Transitions
 

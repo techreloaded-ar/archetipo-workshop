@@ -30,19 +30,15 @@ You are the facilitator of a **user story planning** session assisted by a team 
 
 Upon activation:
 
-#### Step 1 — Load `.archetipo/config.yaml`
+#### Step 1 — Validate Archetipo GitHub setup
 
-Read `.archetipo/config.yaml`. Required keys:
+The setup script writes `.archetipo/config.yaml`, and `.archetipo/cli/archetipo.mjs` owns GitHub Projects mechanics. Validate setup by running:
 
-- `github.owner`
-- `github.project_number`
-- `github.project_node_id`
-- `github.fields.status.id` + `options.{todo, planned, in_progress, review, done}`
-- `github.fields.priority.id` + `options.{high, medium, low}`
-- `github.fields.story_points.id`
-- `github.fields.epic.id`
+```shell
+node .archetipo/cli/archetipo.mjs project-items --status todo --json
+```
 
-If the file is missing or any required key is unset, **stop**:
+If `.archetipo/config.yaml` is missing, incomplete, or the command fails with a setup/config error, **stop**:
 
 ```
 🔎 **Emanuele:** Configurazione Archetipo incompleta o assente.
@@ -51,33 +47,16 @@ Esegui prima lo script di setup per configurare il GitHub Project e scrivere
 `.archetipo/config.yaml`, poi rilancia `/archetipo-plan`.
 ```
 
-From the config, hold the following values for use in later steps (the binding mechanism is up to the executing shell — bash variables, PowerShell variables, in-context placeholders, etc.):
-
-- `<OWNER>`, `<PROJECT_NUMBER>`, `<PROJECT_NODE_ID>`
-- `<STATUS_FIELD_ID>` and the five option ids: `<TODO_OPTION_ID>`, `<PLANNED_OPTION_ID>`, `<IN_PROGRESS_OPTION_ID>`, `<REVIEW_OPTION_ID>`, `<DONE_OPTION_ID>`
-- `<PRIORITY_FIELD_ID>` and `<PRIORITY_HIGH_OPTION_ID>`, `<PRIORITY_MEDIUM_OPTION_ID>`, `<PRIORITY_LOW_OPTION_ID>`
-- `<SP_FIELD_ID>`
-- `<EPIC_FIELD_ID>`
-
-Also fetch the repository **name** (the owner already comes from config):
-
-```
-gh repo view --json name
-```
-
-Hold the returned `name` as `<REPO>` — required by the `sub_issues` REST endpoint in Phase 5.
-
-> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by the setup script. If a later `gh project ...` call in this skill fails with a scope error, stop and ask the user to re-run the setup script.
+> **Auth note:** authentication and scope check (`read:project`, `project`) are owned by the setup script and CLI. If the CLI reports a scope error, stop and ask the user to run `gh auth refresh -s read:project -s project`, then re-run setup.
 
 #### Step 2 — Fetch and filter items
 
-1. Fetch all items:
+1. Fetch eligible Todo candidates:
    ```
-   gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
+   node .archetipo/cli/archetipo.mjs project-items --status todo --json
    ```
 
 2. Filter to items where:
-   - Status == "Todo" (match by `<TODO_OPTION_ID>` from config, not by name)
    - Does NOT have label `planned`
 
 3. If no eligible items found, inform the user and **stop**:
@@ -99,7 +78,7 @@ Tutte le story sono già pianificate o in lavorazione.
 
 3. Read the full issue body:
    ```shell
-   gh issue view <NUMBER> --json body,title,labels,number,url
+   node .archetipo/cli/archetipo.mjs issue-view --issue <NUMBER> --json
    ```
 
 #### Step 4 — Context loading
@@ -428,105 +407,35 @@ _Piano generato via Archetipo Planning — {DATE}_
 
 After saving the planning document:
 
-#### Step 1 — Detect epic label
-
-Read the labels from the parent issue (fetched in Phase 0, Step 4). Identify the epic label matching exactly the stable-code pattern `EP-[0-9][0-9][0-9]`. Save it as `EPIC_LABEL` using the current environment's native variable mechanism — it will be applied to all sub-issues.
-
-Do not use descriptive Epic names as labels. Valid: `EP-007`. Invalid: `EP-007: Growth: esportazioni, filtri e chiusura`.
-
-Validate before creating sub-issues:
-
-Required value: `EPIC_LABEL`. If it is empty or unresolved, stop before creating sub-issues and report that the parent story is missing a stable Epic label.
-
-#### Step 2 — Create `subtask` label
+Create a JSON file for the CLI and call:
 
 ```shell
-gh label create "subtask" --description "Technical subtask of a user story" --color "C2E0C6" --force
+node .archetipo/cli/archetipo.mjs create-plan-tasks --input plan-tasks.json --json
 ```
 
-#### Step 3 — Create sub-issues for each TASK and link them to the parent
+Use this input shape:
 
-For each TASK-XX defined in the implementation plan, perform these three sub-steps **in order**:
-
-**3.a — Create the child issue:**
-
-Write the child issue body to a temporary Markdown file first, using the current environment's native file-write mechanism, then pass it with `--body-file`. Do not inline long heredocs inside `--body`.
-
-```shell
-gh issue create --title "TASK-XX: {Task Title}" --label "subtask" --label "<EPIC_LABEL>" --body-file task-body.md
+```json
+{
+  "issue": 12,
+  "plan_file": "docs/planning/US-001.md",
+  "summary": {
+    "total_tasks": 6,
+    "implementation_tasks": 4,
+    "test_tasks": 2,
+    "effort": "M"
+  },
+  "tasks": [
+    {
+      "id": "TASK-01",
+      "title": "TASK-01: Implement core behavior",
+      "body": "## Task\n\n..."
+    }
+  ]
+}
 ```
 
-Capture the returned URL/number as `<CHILD_NUM>`.
-
-**3.b — Retrieve the child's database id (numeric, NOT the GraphQL node id):**
-
-```shell
-gh api repos/<OWNER>/<REPO>/issues/<CHILD_NUM> --jq .id
-```
-
-Save as `<CHILD_DATABASE_ID>`.
-
-**3.c — Link the child as a native sub-issue of the parent story:**
-
-```shell
-gh api -X POST repos/<OWNER>/<REPO>/issues/<PARENT_ISSUE_NUMBER>/sub_issues -F sub_issue_id=<CHILD_DATABASE_ID> -H "X-GitHub-Api-Version: 2022-11-28"
-```
-
-After this call, the parent issue page will show the child under the native **"Sub-issues"** section, and the child will display "Tracked in #N".
-
-**Critical:** `sub_issue_id` requires the issue's **database id (numeric)** returned by the REST API — confusing it with the GraphQL node id (`I_kwDO...`) is the most common cause of `422 Unprocessable Entity`.
-
-Collect all `<CHILD_NUM>` values for the final summary. Create sub-issues in TASK order (TASK-01 first, then TASK-02, etc.) so the GitHub UI lists them in logical order.
-
-#### Step 4 — Update the parent issue body with a pointer to the plan
-
-Sub-issues are already linked natively (Step 3.c). Do **not** add a `[tasklist]` block — it would duplicate the native "Sub-issues" panel. Just append a pointer to the planning document.
-
-1. Read the current body:
-   ```shell
-   gh issue view <NUMBER> --json body --jq '.body'
-   ```
-
-2. Build the updated body in a temporary Markdown file using the current environment's native file-write mechanism. The file must contain the current issue body followed by this planning pointer:
-
-   ```markdown
-   ---
-
-   ## 📋 Piano di Implementazione
-
-   **File:** `docs/planning/{US-CODE}.md`
-
-   **Riepilogo:**
-   - Task totali: {N} ({N} implementazione + {N} test)
-   - Effort stimato: {total}
-
-   I task sono linkati come sub-issue native (vedi sezione "Sub-issues" sopra).
-
-   _Generato da Archetipo Planning Team_
-   ```
-
-3. Update the issue:
-   ```shell
-   gh issue edit <NUMBER> --body-file updated-body.md
-   ```
-
-**Note:** The native sub-issues relation requires the database id (numeric) in the `sub_issues` endpoint, not the GraphQL node id. See Step 3.b/3.c.
-
-#### Step 5 — Add `planned` label and move Status to "Planned"
-
-```shell
-gh label create "planned" --description "Story has an implementation plan" --color "0E8A16" --force
-gh issue edit <NUMBER> --add-label "planned"
-```
-
-Move the item's Status to "Planned" on the project board:
-Validate `PROJECT_NODE_ID`, `ITEM_ID`, `STATUS_FIELD_ID`, and `PLANNED_OPTION_ID` first. If any value is empty or unresolved, stop before editing the project item.
-
-```shell
-gh project item-edit --project-id "<PROJECT_NODE_ID>" --id "<ITEM_ID>" --field-id "<STATUS_FIELD_ID>" --single-select-option-id "<PLANNED_OPTION_ID>"
-```
-
-To get the `<ITEM_ID>`, search the project items fetched in Phase 0, Step 2 for the item matching this issue number.
+The CLI detects the stable Epic label, creates `subtask`, creates and links native sub-issues, appends the planning pointer to the parent issue, adds `planned`, and moves the project item to Planned.
 
 #### Step 6 — Confirm completion
 
@@ -607,14 +516,14 @@ This ensures the plan is grounded in the actual codebase, not generic advice.
 
 ### IDs source
 
-Project number, project node ID, field IDs, and option IDs all come from `.archetipo/config.yaml` (Phase 0 Step 1). The only `gh project` call this skill makes is:
+Project number, project node ID, field IDs, and option IDs all come from `.archetipo/config.yaml`, but this skill should access them through `.archetipo/cli/archetipo.mjs`. Use:
 
 ```
-gh project item-list <PROJECT_NUMBER> --owner <OWNER> --format json -L 200
+node .archetipo/cli/archetipo.mjs project-items --status todo --json
 ```
 
 If field/option IDs in the config no longer match the live project (project recreated, options rewritten outside Archetipo), stop and ask the user to re-run the setup script.
 
 ### Item List Limit
 
-Always use `-L 200` with `gh project item-list` to avoid the default limit of 30 items.
+The CLI uses an explicit item limit and compact JSON output to avoid the default GitHub CLI cap.
