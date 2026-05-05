@@ -151,7 +151,10 @@ Execute the tasks wave by wave following the parallelization strategy.
 
 1. **Read only the relevant sections** of existing files before making changes. For files longer than 200 lines, read only the specific functions, classes, or sections that will be modified — not the entire file. The implementation plan describes the technical approach to follow.
 2. **Follow project conventions** from CLAUDE.md and .claude/ files
-3. When designing UI/UX, **Follow the mockups** from docs/mockups, if they exist
+3. **Mockup fidelity is a hard requirement.** When `docs/mockups/` contains mockups related to the current story:
+   - **Read all relevant mockup files first** — before writing any UI code, Ugo must read the mockup HTML/CSS in `docs/mockups/` that corresponds to the screens or components being implemented
+   - **Layout fidelity:** The page structure, grid, component placement, and responsive behavior must match the mockup. Do not rearrange, simplify, or "improve" the layout unless the mockup is technically impossible to implement — in which case, flag it to the user
+   - **Color and typography tokens:** Extract CSS custom properties (colors, font families, font sizes, spacing, border-radius) directly from the mockup's `shared.css` or inline styles and use them as the source of truth for the implementation
 4. **Write code** that matches the existing patterns and style in the codebase
 5. **Mark the task as done** inside the docs/planning/US-XXX.md file by changing its status from `TODO` to `DONE` in the task table
 6. **Announce completion** briefly after each task
@@ -201,7 +204,13 @@ After all tasks are implemented and tests pass, **delegate the code review to a 
 **Cesare reviews against these criteria:**
 
 1. **Aderenza al piano:** Does the implementation match the technical solution described in `docs/planning/{US-CODE}.md`?
-2. **Qualità del codice:**
+2. **Aderenza ai mockup:** If `docs/mockups/` contains mockups for this story, does the implementation visually match them? Verify:
+   - Colors, typography, spacing, and layout match the mockup
+   - All UI elements present in the mockup are implemented
+   - Hover states, transitions, and animations from the mockup are present
+   - No visual shortcuts or "close enough" substitutions were made
+   - Generic component defaults were overridden to match the mockup's design
+3. **Qualità del codice:**
    - Code is readable and well-structured
    - Naming is clear and consistent with project conventions
    - No unnecessary duplication
@@ -224,6 +233,7 @@ After all tasks are implemented and tests pass, **delegate the code review to a 
 6. **Completezza:**
    - All acceptance criteria from the user story are satisfied
    - All tasks from the implementation plan are completed
+   - If mockups existed for this story, the implementation is visually faithful to them
 
 **Review output format:**
 
@@ -333,11 +343,12 @@ During active coding (Phase 2), minimize conversation and focus on writing code.
 
 Before writing any code, the team MUST:
 - Read project configuration files for project conventions
+- **Check `docs/mockups/` for relevant mockups** — if mockups exist for the screens/components in scope, they are the primary visual reference and must be read before any UI code is written
 - Examine existing code patterns in the areas they'll modify
 - Understand the testing patterns already in use
 - Check for reusable utilities, components, or helpers
 
-This ensures new code fits naturally into the existing codebase.
+This ensures new code fits naturally into the existing codebase and that UI implementations faithfully reproduce the design intent from mockups.
 
 ### Context Efficiency
 
