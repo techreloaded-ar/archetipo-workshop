@@ -234,6 +234,8 @@ function createStoryCommand(args) {
   const config = loadConfig();
   const created = [];
 
+  assertUniqueStories(stories);
+
   for (const story of stories) {
     const result = createStory(config, story);
     created.push(result);
@@ -252,6 +254,7 @@ function createPlanTasksCommand(args) {
   const tasks = requiredArray(input.tasks, "input.tasks");
   const parentIssue = ghJson(["issue", "view", String(issueNumber), "--json", "body,title,labels,number,url"]);
   const epicLabel = input.epic_label || findEpicLabel(parentIssue.labels);
+  const linkedSubIssues = listSubIssues(config, repo.name, issueNumber);
 
   if (!epicLabel) {
     fail(`Issue #${issueNumber} non ha una label EP-XXX stabile.`);
@@ -263,27 +266,24 @@ function createPlanTasksCommand(args) {
     const body = required(task.body, `task ${task.id || task.title} body`);
     const rawTitle = required(task.title, "task.title");
     const title = rawTitle.startsWith("TASK-") ? rawTitle : `${required(task.id, "task.id")}: ${rawTitle}`;
-    const bodyFile = withTempFile("task-body", ".md", body, (file) =>
-      ghText(["issue", "create", "--title", title, "--label", "subtask", "--label", epicLabel, "--body-file", file]),
-    );
-    const childNumber = issueNumberFromText(bodyFile);
-    const child = ghJson(["api", `repos/${config.github.owner}/${repo.name}/issues/${childNumber}`]);
-    ghJson([
-      "api",
-      "-X",
-      "POST",
-      `repos/${config.github.owner}/${repo.name}/issues/${issueNumber}/sub_issues`,
-      "-F",
-      `sub_issue_id=${child.id}`,
-      "-H",
-      "X-GitHub-Api-Version: 2022-11-28",
-    ]);
-    return { number: childNumber, title, url: child.html_url };
+    const taskCode = task.id || codeFromTaskTitle(title);
+    const existing = findExistingTask(config, repo.name, issueNumber, taskCode, title, linkedSubIssues);
+    const child = existing || createTaskIssue(config, repo.name, title, body, epicLabel);
+
+    ensureSubIssueLinked(config, repo.name, issueNumber, child, linkedSubIssues);
+    return {
+      number: child.number,
+      title: child.title || title,
+      url: child.html_url || child.url,
+      action: existing ? "reused" : "created",
+    };
   });
 
   const pointer = buildPlanPointer(planFile, summary, input.footer);
-  const updatedBody = `${parentIssue.body || ""}\n\n${pointer}`;
-  withTempFile("updated-body", ".md", updatedBody, (file) => ghText(["issue", "edit", String(issueNumber), "--body-file", file]));
+  if (!hasPlanPointer(parentIssue.body, planFile)) {
+    const updatedBody = `${parentIssue.body || ""}\n\n${pointer}`;
+    withTempFile("updated-body", ".md", updatedBody, (file) => ghText(["issue", "edit", String(issueNumber), "--body-file", file]));
+  }
 
   ghText(["label", "create", "planned", "--description", "Story has an implementation plan", "--color", "0E8A16", "--force"]);
   ghText(["issue", "edit", String(issueNumber), "--add-label", "planned"]);
@@ -309,6 +309,7 @@ function commentStoryCommand(args) {
 }
 
 function createStory(config, story) {
+  const repo = getRepo(config.github.owner);
   const rawTitle = required(story.title, "story.title");
   const storyCode = story.code || codeFromTitle(rawTitle);
   const title = rawTitle.startsWith("US-") ? rawTitle : `${required(storyCode, "story.code")}: ${rawTitle}`;
@@ -328,16 +329,10 @@ function createStory(config, story) {
     fail(`Priority non valida: ${story.priority}. Valori: HIGH, MEDIUM, LOW.`);
   }
 
-  const issueUrl = withTempFile("story-body", ".md", body, (file) =>
-    ghText(["issue", "create", "--title", title, "--label", "archetipo-spec", "--label", epicCode, "--body-file", file]),
-  );
-  const issueNumber = issueNumberFromText(issueUrl);
-  const issue = ghJson(["issue", "view", String(issueNumber), "--json", "id,number,title,url"]);
-  const added = addIssueToProject(config, issue.id);
-  const itemId = added.data?.addProjectV2ItemById?.item?.id;
-  if (!itemId) {
-    fail(`Issue #${issueNumber} creata, ma item project non restituito.`);
-  }
+  const existing = findExistingStory(config, repo.name, storyCode, title);
+  const issue = existing || createStoryIssue(config, title, body, epicCode);
+  ensureIssueLabels(issue.number, ["archetipo-spec", epicCode]);
+  const itemId = ensureIssueInProject(config, issue);
 
   editSingleSelect(config.github.project_node_id, itemId, config.github.fields.status.id, config.github.fields.status.options.todo);
   editSingleSelect(config.github.project_node_id, itemId, config.github.fields.priority.id, priorityOption);
@@ -363,7 +358,154 @@ function createStory(config, story) {
     epic: epicOption.name,
     priority: story.priority.toUpperCase(),
     story_points: storyPoints,
+    action: existing ? "reused" : "created",
   };
+}
+
+function assertUniqueStories(stories) {
+  const seenCodes = new Map();
+  const seenTitles = new Map();
+
+  for (const story of stories) {
+    const rawTitle = required(story.title, "story.title");
+    const code = story.code || codeFromTitle(rawTitle);
+    const title = normalizeComparableTitle(rawTitle.startsWith("US-") ? rawTitle : `${required(code, "story.code")}: ${rawTitle}`);
+
+    if (seenCodes.has(code)) {
+      fail(`Input contiene storie duplicate con codice ${code}: "${seenCodes.get(code)}" e "${rawTitle}".`);
+    }
+    if (seenTitles.has(title)) {
+      fail(`Input contiene storie duplicate con titolo "${rawTitle}".`);
+    }
+
+    seenCodes.set(code, rawTitle);
+    seenTitles.set(title, rawTitle);
+  }
+}
+
+function createStoryIssue(config, title, body, epicCode) {
+  const issueUrl = withTempFile("story-body", ".md", body, (file) =>
+    ghText(["issue", "create", "--title", title, "--label", "archetipo-spec", "--label", epicCode, "--body-file", file]),
+  );
+  const issueNumber = issueNumberFromText(issueUrl);
+  return ghJson(["issue", "view", String(issueNumber), "--json", "id,number,title,url"]);
+}
+
+function findExistingStory(config, repoName, storyCode, title) {
+  const projectMatch = getProjectItems(config, 500).find((item) => {
+    const candidateTitle = item.content?.title || item.title || "";
+    return codeFromTitle(candidateTitle) === storyCode || normalizeComparableTitle(candidateTitle) === normalizeComparableTitle(title);
+  });
+  if (projectMatch?.content?.number) {
+    return ghJson(["issue", "view", String(projectMatch.content.number), "--json", "id,number,title,url"]);
+  }
+
+  return findIssueByTitle(config, repoName, storyCode, title);
+}
+
+function ensureIssueInProject(config, issue) {
+  const items = getProjectItems(config, 500);
+  const existing = items.find((candidate) => String(candidate.content?.number) === String(issue.number));
+  if (existing?.id) {
+    return existing.id;
+  }
+
+  const added = addIssueToProject(config, issue.id);
+  const itemId = added.data?.addProjectV2ItemById?.item?.id;
+  if (!itemId) {
+    fail(`Issue #${issue.number} trovata, ma item project non restituito.`);
+  }
+  return itemId;
+}
+
+function ensureIssueLabels(issueNumber, labels) {
+  for (const label of labels) {
+    ghText(["issue", "edit", String(issueNumber), "--add-label", label]);
+  }
+}
+
+function createTaskIssue(config, repoName, title, body, epicLabel) {
+  const issueUrl = withTempFile("task-body", ".md", body, (file) =>
+    ghText(["issue", "create", "--title", title, "--label", "subtask", "--label", epicLabel, "--body-file", file]),
+  );
+  const childNumber = issueNumberFromText(issueUrl);
+  return ghJson(["api", `repos/${config.github.owner}/${repoName}/issues/${childNumber}`]);
+}
+
+function findExistingTask(config, repoName, parentIssueNumber, taskCode, title, linkedSubIssues) {
+  const linked = linkedSubIssues.find((issue) => issueMatchesTask(issue, taskCode, title));
+  if (linked) {
+    return linked;
+  }
+
+  const issue = findIssueByTitle(config, repoName, taskCode, title, ["subtask"]);
+  if (!issue) {
+    return undefined;
+  }
+
+  return ghJson(["api", `repos/${config.github.owner}/${repoName}/issues/${issue.number}`]);
+}
+
+function ensureSubIssueLinked(config, repoName, parentIssueNumber, child, linkedSubIssues) {
+  const alreadyLinked = linkedSubIssues.some((issue) => String(issue.number) === String(child.number) || String(issue.id) === String(child.id));
+  if (alreadyLinked) {
+    return;
+  }
+
+  ghJson([
+    "api",
+    "-X",
+    "POST",
+    `repos/${config.github.owner}/${repoName}/issues/${parentIssueNumber}/sub_issues`,
+    "-F",
+    `sub_issue_id=${child.id}`,
+    "-H",
+    "X-GitHub-Api-Version: 2022-11-28",
+  ]);
+  linkedSubIssues.push(child);
+}
+
+function listSubIssues(config, repoName, issueNumber) {
+  const result = ghJson([
+    "api",
+    `repos/${config.github.owner}/${repoName}/issues/${issueNumber}/sub_issues`,
+    "-H",
+    "X-GitHub-Api-Version: 2022-11-28",
+  ]);
+  return Array.isArray(result) ? result : [];
+}
+
+function closeLinkedSubtasks(config, issueNumber) {
+  const repo = getRepo(config.github.owner);
+  const subIssues = listSubIssues(config, repo.name, issueNumber);
+  const openSubtasks = subIssues.filter((issue) => {
+    const state = String(issue.state || "").toUpperCase();
+    return state !== "CLOSED" && labelsOf(issue).includes("subtask");
+  });
+
+  for (const issue of openSubtasks) {
+    ghText(["issue", "close", String(issue.number), "--comment", `Closed automatically when parent story #${issueNumber} moved to review/done.`]);
+  }
+
+  return openSubtasks.map((issue) => Number(issue.number));
+}
+
+function findIssueByTitle(config, repoName, code, title, requiredLabels = []) {
+  const search = `${code} in:title repo:${config.github.owner}/${repoName}`;
+  const issues = ghJson(["issue", "list", "--state", "all", "--search", search, "--json", "id,number,title,url,labels,state", "-L", "20"]);
+  return (Array.isArray(issues) ? issues : []).find((issue) => {
+    const hasLabels = requiredLabels.every((label) => labelsOf(issue).includes(label));
+    return hasLabels && (codeFromTitle(issue.title) === code || codeFromTaskTitle(issue.title) === code || normalizeComparableTitle(issue.title) === normalizeComparableTitle(title));
+  });
+}
+
+function issueMatchesTask(issue, taskCode, title) {
+  const candidateTitle = issue.title || "";
+  return codeFromTaskTitle(candidateTitle) === taskCode || normalizeComparableTitle(candidateTitle) === normalizeComparableTitle(title);
+}
+
+function normalizeComparableTitle(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function syncEpics(config, epics) {
@@ -427,7 +569,8 @@ function moveStory(config, issueNumber, statusKey) {
   }
 
   editSingleSelect(config.github.project_node_id, item.id, config.github.fields.status.id, optionIdValue);
-  return { issue: Number(issueNumber), item_id: item.id, status: normalizedStatus.name };
+  const closed_subtasks = ["review", "done"].includes(normalizedStatus.key) ? closeLinkedSubtasks(config, issueNumber) : [];
+  return { issue: Number(issueNumber), item_id: item.id, status: normalizedStatus.name, closed_subtasks };
 }
 
 function getProjectItems(config, limit = 200) {
@@ -538,7 +681,7 @@ function fieldValue(item, fieldName) {
 
 function statusMatches(config, item, status) {
   const normalized = normalizeStatus(status);
-  const configuredId = config.github.fields.status.options[normalized.key];
+  const configuredId = config.github?.fields?.status?.options?.[normalized.key];
   const field = (item.fieldValues || []).find((value) => value.fieldName === "Status" || value.field?.name === "Status");
   return (
     item.status === normalized.name ||
@@ -609,7 +752,7 @@ function ghJson(args, options = {}) {
 }
 
 function ghText(args, options = {}) {
-  const maxRetries = options.retries ?? 1;
+  const maxRetries = options.retries ?? 0;
   let last;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     const result = spawnSync("gh", args, { encoding: "utf8", shell: false });
@@ -739,21 +882,21 @@ github:
 
 function validateConfig(config) {
   const requiredValues = {
-    "github.owner": config.github.owner,
-    "github.project_number": config.github.project_number,
-    "github.project_node_id": config.github.project_node_id,
-    "github.fields.status.id": config.github.fields.status.id,
-    "github.fields.status.options.todo": config.github.fields.status.options.todo,
-    "github.fields.status.options.planned": config.github.fields.status.options.planned,
-    "github.fields.status.options.in_progress": config.github.fields.status.options.in_progress,
-    "github.fields.status.options.review": config.github.fields.status.options.review,
-    "github.fields.status.options.done": config.github.fields.status.options.done,
-    "github.fields.priority.id": config.github.fields.priority.id,
-    "github.fields.priority.options.high": config.github.fields.priority.options.high,
-    "github.fields.priority.options.medium": config.github.fields.priority.options.medium,
-    "github.fields.priority.options.low": config.github.fields.priority.options.low,
-    "github.fields.story_points.id": config.github.fields.story_points.id,
-    "github.fields.epic.id": config.github.fields.epic.id,
+    "github.owner": config.github?.owner,
+    "github.project_number": config.github?.project_number,
+    "github.project_node_id": config.github?.project_node_id,
+    "github.fields.status.id": config.github?.fields?.status?.id,
+    "github.fields.status.options.todo": config.github?.fields?.status?.options?.todo,
+    "github.fields.status.options.planned": config.github?.fields?.status?.options?.planned,
+    "github.fields.status.options.in_progress": config.github?.fields?.status?.options?.in_progress,
+    "github.fields.status.options.review": config.github?.fields?.status?.options?.review,
+    "github.fields.status.options.done": config.github?.fields?.status?.options?.done,
+    "github.fields.priority.id": config.github?.fields?.priority?.id,
+    "github.fields.priority.options.high": config.github?.fields?.priority?.options?.high,
+    "github.fields.priority.options.medium": config.github?.fields?.priority?.options?.medium,
+    "github.fields.priority.options.low": config.github?.fields?.priority?.options?.low,
+    "github.fields.story_points.id": config.github?.fields?.story_points?.id,
+    "github.fields.epic.id": config.github?.fields?.epic?.id,
   };
   const missing = Object.entries(requiredValues)
     .filter(([, value]) => !value)
@@ -787,10 +930,18 @@ function codeFromTitle(value) {
   return String(value || "").match(/US-\d{3}/)?.[0] || "";
 }
 
+function codeFromTaskTitle(value) {
+  return String(value || "").match(/TASK-\d{2,3}/)?.[0] || "";
+}
+
 function findEpicLabel(labels) {
   return (labels || [])
     .map((label) => (typeof label === "string" ? label : label.name))
     .find((name) => /^EP-\d{3}$/.test(name));
+}
+
+function hasPlanPointer(body, planFile) {
+  return String(body || "").includes("## Piano di Implementazione") && String(body || "").includes(`\`${planFile}\``);
 }
 
 function buildPlanPointer(planFile, summary, footer) {

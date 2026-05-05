@@ -349,6 +349,8 @@ The JSON may contain either one story object or `{ "stories": [...] }`. Each sto
 
 The CLI owns Epic option sync, stable `EP-XXX` labels, `archetipo-spec` label, issue creation, project insertion, and custom field updates.
 
+The command is idempotent by stable `US-XXX` code and exact title. If a previous run created some issues before failing, rerun the same command with the same JSON; the CLI reuses existing stories instead of creating duplicates.
+
 ---
 
 ### PHASE 3 — Output

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "archetipo": "node .archetipo/cli/archetipo.mjs",
+    "test:cli": "node --test .archetipo/cli/archetipo.test.mjs",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",

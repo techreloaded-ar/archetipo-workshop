@@ -437,6 +437,8 @@ Use this input shape:
 
 The CLI detects the stable Epic label, creates `subtask`, creates and links native sub-issues, appends the planning pointer to the parent issue, adds `planned`, and moves the project item to Planned.
 
+The command is idempotent by stable `TASK-XX` code under the parent story and by the planning file pointer. If a previous run created or linked some sub-issues before failing, rerun the same JSON; the CLI reuses existing subtasks and does not append a duplicate planning pointer.
+
 #### Step 6 — Confirm completion
 
 ```
