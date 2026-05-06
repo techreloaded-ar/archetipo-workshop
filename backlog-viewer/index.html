@@ -486,6 +486,31 @@
       line-height: 1.42;
     }
 
+    .epic-panel {
+      margin: 0 0 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #f7f8f9;
+    }
+
+    .epic-panel .code {
+      margin-bottom: 5px;
+    }
+
+    .epic-panel h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+
+    .epic-panel p {
+      margin: 0 0 10px;
+      color: #3f4943;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
     .empty {
       padding: 28px 16px;
       color: var(--muted);
@@ -788,6 +813,7 @@
     }
 
     function parseBacklog(markdown) {
+      const epics = parseEpics(markdown);
       const storyHeading = /^####\s+(US-\d+):\s+(.+)$/gm;
       const matches = [...markdown.matchAll(storyHeading)];
       return matches.map((match, index) => {
@@ -799,10 +825,24 @@
         const storyText = sectionText(block, "Story");
         const demonstrates = sectionText(block, "Demonstrates");
         const criteria = checkboxItems(block, "Acceptance Criteria");
+        const epicCode = meta ? meta[1].trim() : "";
+        const epic = epics.get(epicCode) || inferEpicForStory(epics, start) || {
+          code: epicCode || "Senza epic",
+          title: "",
+          description: "",
+          scope: "",
+          stories: "",
+          points: ""
+        };
         return {
           id: match[1],
           title: match[2].trim(),
-          epic: meta ? meta[1].trim() : "Senza epic",
+          epic: epic.code,
+          epicTitle: epic.title,
+          epicDescription: epic.description,
+          epicScope: epic.scope,
+          epicStories: epic.stories,
+          epicPoints: epic.points,
           priority: meta ? meta[2].trim().toUpperCase() : "MEDIUM",
           points: meta ? meta[3].trim() : "?",
           status: normalizeStatus(status ? status[1].trim() : "TODO"),
@@ -815,6 +855,40 @@
           tasks: []
         };
       });
+    }
+
+    function parseEpics(markdown) {
+      const epicHeading = /^###\s+(EP-\d+):\s+(.+)$/gm;
+      const matches = [...markdown.matchAll(epicHeading)];
+      const epics = new Map();
+      matches.forEach((match, index) => {
+        const start = match.index;
+        const end = index + 1 < matches.length ? matches[index + 1].index : markdown.length;
+        const block = markdown.slice(start, end);
+        const quoteLines = block.split(/\r?\n/)
+          .filter(line => line.trim().startsWith(">"))
+          .map(line => line.replace(/^\s*>\s?/, "").trim())
+          .filter(Boolean);
+        const scopeLine = quoteLines.find(line => /\*\*Scope:\*\*/i.test(line)) || "";
+        const description = quoteLines.filter(line => !/\*\*Scope:\*\*/i.test(line)).join(" ");
+        const summary = scopeLine.match(/\*\*Scope:\*\*\s*([^|]+)(?:\|\s*\*\*Stories:\*\*\s*([^|]+))?(?:\|\s*\*\*Story Points:\*\*\s*([^|]+))?/i);
+        epics.set(match[1], {
+          code: match[1],
+          title: match[2].trim(),
+          description,
+          scope: summary ? summary[1].trim() : "",
+          stories: summary && summary[2] ? summary[2].trim() : "",
+          points: summary && summary[3] ? summary[3].trim() : "",
+          start
+        });
+      });
+      return epics;
+    }
+
+    function inferEpicForStory(epics, storyStart) {
+      return [...epics.values()]
+        .filter(epic => epic.start < storyStart)
+        .sort((a, b) => b.start - a.start)[0] || null;
     }
 
     function sectionText(block, title) {
@@ -912,7 +986,18 @@
     function filteredStories() {
       const query = el.search.value.trim().toLowerCase();
       return state.stories.filter(story => {
-        const haystack = [story.id, story.title, story.epic, story.priority, story.story, ...story.tasks.map(task => `${task.id} ${task.title} ${task.description}`)].join(" ").toLowerCase();
+        const haystack = [
+          story.id,
+          story.title,
+          story.epic,
+          story.epicTitle,
+          story.epicDescription,
+          story.epicScope,
+          story.priority,
+          story.story,
+          story.demonstrates,
+          ...story.tasks.map(task => `${task.id} ${task.title} ${task.description}`)
+        ].join(" ").toLowerCase();
         return (!query || haystack.includes(query))
           && (!el.epicFilter.value || story.epic === el.epicFilter.value)
           && (!el.priorityFilter.value || story.priority === el.priorityFilter.value);
@@ -939,6 +1024,7 @@
 
     function cardTemplate(story) {
       const priorityClass = story.priority.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+      const epicLabel = story.epicTitle ? `${story.epic} · ${story.epicTitle}` : story.epic;
       const tasks = story.tasks.slice(0, 5).map(task => `
         <div class="task"><span class="task-state">${escapeHtml(task.state)}</span><span>${escapeHtml(task.id)} · ${escapeHtml(task.title)}</span></div>
       `).join("");
@@ -950,7 +1036,7 @@
           </div>
           <h3>${escapeHtml(story.title)}</h3>
           <div class="meta">
-            <span>${escapeHtml(story.epic)}</span>
+            <span>${escapeHtml(epicLabel)}</span>
             <span>${escapeHtml(story.points)} pt</span>
           </div>
           <div class="tasks">
@@ -996,6 +1082,7 @@
       const story = state.stories.find(item => item.id === id);
       if (!story) return;
       state.selected = id;
+      const epicLabel = story.epicTitle ? `${story.epic} · ${story.epicTitle}` : story.epic;
       el.drawer.innerHTML = `
         <div class="drawer-head">
           <div>
@@ -1007,17 +1094,36 @@
           </button>
         </div>
         <div class="meta">
-          <span>${escapeHtml(story.epic)}</span>
+          <span>${escapeHtml(epicLabel)}</span>
           <span>${story.priority}</span>
           <span>${escapeHtml(story.points)} pt</span>
           <span>${story.status}</span>
         </div>
+        ${epicPanel(story)}
         <p class="story">${escapeHtml(story.story)}</p>
+        ${story.demonstrates ? `<section class="detail-section"><h3>Demonstrates</h3><p class="story">${escapeHtml(story.demonstrates)}</p></section>` : ""}
         ${detailList("Acceptance criteria", story.criteria)}
         ${detailTasks(story)}
       `;
       el.drawer.classList.add("open");
       document.getElementById("closeDrawer").addEventListener("click", () => el.drawer.classList.remove("open"));
+    }
+
+    function epicPanel(story) {
+      if (!story.epicTitle && !story.epicDescription && !story.epicScope) return "";
+      const stats = [
+        story.epicScope && `Scope ${story.epicScope}`,
+        story.epicStories && `${story.epicStories} storie`,
+        story.epicPoints && `${story.epicPoints} pt`
+      ].filter(Boolean);
+      return `
+        <section class="epic-panel">
+          <span class="code">${escapeHtml(story.epic)}</span>
+          ${story.epicTitle ? `<h3>${escapeHtml(story.epicTitle)}</h3>` : ""}
+          ${story.epicDescription ? `<p>${escapeHtml(story.epicDescription)}</p>` : ""}
+          ${stats.length ? `<div class="meta">${stats.map(item => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+        </section>
+      `;
     }
 
     function detailList(title, items) {
