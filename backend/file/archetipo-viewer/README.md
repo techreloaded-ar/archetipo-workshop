@@ -6,9 +6,10 @@ Viewer Kanban statico per `docs/BACKLOG.md`.
 
 1. Apri `index.html` con Chrome o Edge.
 2. Premi `Apri progetto`.
-3. Seleziona la cartella suggerita dal viewer. Di solito e la cartella superiore a `backlog-viewer`, per esempio `C:\Users\smare\repo\ws1`.
+3. Seleziona la cartella suggerita dal viewer. Di solito e la cartella superiore a `archetipo-viewer`, per esempio `C:\Users\smare\repo\ws3`.
 
 Dopo la prima autorizzazione, il viewer prova a riaprire automaticamente la stessa root di progetto. Se il browser revoca il permesso, chiede solo di riautorizzare la stessa cartella.
+L'autorizzazione salvata e legata al file `index.html` aperto, cosi workspace diversi non riusano per errore la root di un altro progetto.
 
 La pagina legge `docs/BACKLOG.md` e, quando presenti, i task da `docs/planning/US-XXX.md`.
 Spostando una card via drag & drop, il Markdown viene aggiornato e salvato subito in `docs/BACKLOG.md`.

@@ -635,7 +635,7 @@
     const PROJECT_HANDLE_STORE = {
       db: "archetipo-viewer",
       store: "handles",
-      key: "project-root"
+      key: getProjectHandleKey()
     };
 
     const el = {
@@ -663,7 +663,16 @@
       const rawPath = decodeURIComponent(window.location.pathname)
         .replace(/^\/([A-Za-z]:\/)/, "$1")
         .replace(/\//g, "\\");
-      return rawPath.replace(/\\backlog-viewer\\index\.html$/i, "");
+      const match = rawPath.match(/^(.*)\\(?:archetipo-viewer|backlog-viewer)\\index\.html$/i);
+      return match ? match[1] : "";
+    }
+
+    function getProjectHandleKey() {
+      const viewerPath = decodeURIComponent(window.location.pathname || "")
+        .replace(/^\/([A-Za-z]:\/)/, "$1")
+        .replace(/\//g, "\\")
+        .toLowerCase();
+      return `project-root:${viewerPath || "default"}`;
     }
 
     function toast(message) {
