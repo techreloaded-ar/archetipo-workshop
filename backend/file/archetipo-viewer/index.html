@@ -805,9 +805,6 @@
       render();
       el.reload.disabled = false;
       setDirty(false);
-      if (!state.planningHandle) {
-        setNotice("Backlog caricato. Non trovo docs/planning: le card sono visibili senza task di implementazione.");
-      }
     }
 
     function resetData(message) {
