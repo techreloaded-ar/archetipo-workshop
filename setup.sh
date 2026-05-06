@@ -77,7 +77,7 @@ show_menu() {
 }
 
 show_single_choice_menu() {
-    local -n option_names=$1
+    local option_names=("$@")
     local count=${#option_names[@]}
     local cursor=0
     SELECTED_CHOICE=0
@@ -128,7 +128,7 @@ fi
 
 # --- Selezione backend backlog ---
 
-show_single_choice_menu BACKEND_NAMES
+show_single_choice_menu "${BACKEND_NAMES[@]}"
 
 SELECTED_BACKEND_INDEX=$SELECTED_CHOICE
 SELECTED_BACKEND_KEY="${BACKEND_KEYS[$SELECTED_BACKEND_INDEX]}"
