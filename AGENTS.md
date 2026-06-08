@@ -97,7 +97,7 @@ const { data } = await supabase.storage.from("bucket").upload("path", file);
 
 ## Archetipo Skills — Boilerplate Constraints
 
-This project ships with a fully configured boilerplate. The skills `/archetipo-inception` and `/archetipo-backlog` **must** respect the existing implementation described above.
+This project ships with a fully configured boilerplate. The skills `/archetipo-inception` and `/archetipo-spec` **must** respect the existing implementation described above.
 
 ### Constraint for `archetipo-inception` (Phase 2 — Technical Architecture)
 
@@ -113,7 +113,7 @@ When Leonardo (Architect) proposes the technical architecture:
 - **Additions are welcome** — Leonardo may propose new libraries, APIs, external services, or tools on top of the base stack, but must never replace or contradict it.
 - **Pre-fill** the Technology Stack table in the PRD with the boilerplate values listed above.
 
-### Constraint for `archetipo-inception` and `archetipo-backlog` (Requirements & Stories)
+### Constraint for `archetipo-inception` and `archetipo-spec` (Requirements & Stories)
 
 The following features are **already implemented** in the boilerplate. Agents must not generate functional requirements or user stories that recreate them:
 

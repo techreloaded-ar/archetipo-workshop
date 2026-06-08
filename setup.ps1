@@ -2,9 +2,18 @@ $ErrorActionPreference = "Stop"
 
 $TEMPLATE_REPO = "https://github.com/techreloaded-ar/archetipo-workshop.git"
 $DEFAULT_DIR = "archetipo-workshop"
-$BACKENDS = @(
-    @{ Name = "File"; Key = "file"; SkillsPath = "backend\file\skills"; ViewerPath = "backend\file\archetipo-viewer" }
-    @{ Name = "GitHub Projects"; Key = "github"; SkillsPath = "backend\github\skills"; ArchetipoPath = "backend\github\.archetipo" }
+
+$Backends = @(
+    @{ Name = "File"; Key = "file" }
+    @{ Name = "GitHub Projects"; Key = "github" }
+)
+
+$Tools = @(
+    @{ Name = "Claude Code";    Key = "claude" }
+    @{ Name = "Codex";          Key = "codex" }
+    @{ Name = "Gemini CLI";     Key = "gemini" }
+    @{ Name = "OpenCode";       Key = "opencode" }
+    @{ Name = "GitHub Copilot"; Key = "copilot" }
 )
 
 Write-Host ""
@@ -12,6 +21,8 @@ Write-Host "========================================="
 Write-Host "  Archetipo Workshop — Setup"
 Write-Host "========================================="
 Write-Host ""
+
+# --- Prerequisiti ---
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Error "git non e' installato. Installalo prima di continuare."
@@ -23,21 +34,50 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$Tools = @(
-    @{ Name = "Claude Code";    SkillsPath = ".claude\skills" }
-    @{ Name = "Codex";          SkillsPath = ".agents\skills" }
-    @{ Name = "Gemini CLI";     SkillsPath = ".gemini\skills" }
-    @{ Name = "OpenCode";       SkillsPath = ".opencode\skills" }
-    @{ Name = "GitHub Copilot"; SkillsPath = ".github\skills" }
-)
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Write-Error "npm non e' installato. Installalo prima di continuare."
+    exit 1
+}
 
-$ArchetipoSkills = @(
-    "archetipo-design",
-    "archetipo-implement",
-    "archetipo-inception",
-    "archetipo-plan",
-    "archetipo-spec"
-)
+# --- Verifica / auto-install CLI globale archetipo ---
+
+$archetipoCmd = Get-Command archetipo -ErrorAction SilentlyContinue
+
+if (-not $archetipoCmd) {
+    Write-Host ""
+    Write-Host "La CLI globale 'archetipo' non e' trovata nel PATH. Tentativo di installazione automatica..." -ForegroundColor Yellow
+    Write-Host ""
+    npm install -g @techreloaded/archetipo
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "Installazione fallita." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Prova manualmente:"
+        Write-Host "  npm config set prefix $env:APPDATA\npm"
+        Write-Host "  npm install -g @techreloaded/archetipo"
+        Write-Host ""
+        Write-Host "Poi rilancia questo script."
+        exit 1
+    }
+
+    $archetipoCmd = Get-Command archetipo -ErrorAction SilentlyContinue
+    if (-not $archetipoCmd) {
+        Write-Host ""
+        Write-Host "Installazione completata ma 'archetipo' non e' ancora nel PATH." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Aggiungi il bin path di npm al tuo PATH:"
+        Write-Host "  `$env:Path += `";`$(npm config get prefix)\bin`""
+        Write-Host ""
+        Write-Host "Poi rilancia questo script."
+        exit 1
+    }
+}
+
+$version = & archetipo --version 2>$null
+Write-Host ""
+Write-Host "  archetipo $version" -ForegroundColor Green
+
+# --- Menu interattivi ---
 
 function Show-Menu {
     param([array]$Options)
@@ -120,7 +160,7 @@ if ([string]::IsNullOrWhiteSpace($REMOTE_URL)) {
 
 # --- Selezione backend backlog ---
 
-$selectedBackend = Show-SingleChoiceMenu -Options $BACKENDS -Title "Seleziona backend backlog:"
+$selectedBackend = Show-SingleChoiceMenu -Options $Backends -Title "Seleziona backend backlog:"
 
 if ($selectedBackend.Key -eq "github") {
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -130,7 +170,15 @@ if ($selectedBackend.Key -eq "github") {
 
     & gh auth status > $null 2> $null
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "GitHub CLI non e' autenticata. Esegui: gh auth login"
+        Write-Error "GitHub CLI non e' autenticata. Esegui: gh auth login`nPoi: gh auth refresh -s read:project -s project"
+        exit 1
+    }
+
+    Write-Host ""
+    Write-Host "Verifica scope GitHub Projects..." -ForegroundColor Yellow
+    & gh project list --limit 1 --format json > $null 2> $null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Mancano gli scope per GitHub Projects v2. Esegui: gh auth refresh -s read:project -s project"
         exit 1
     }
 }
@@ -157,85 +205,62 @@ Write-Host ""
 Write-Host "Clono il template in '$PROJECT_DIR'..."
 git clone $TEMPLATE_REPO $PROJECT_DIR
 
-# --- Copia .archetipo e skills ---
-
-$DEST       = Resolve-Path $PROJECT_DIR
-$SKILLS_SRC = Join-Path $DEST $selectedBackend.SkillsPath
-
-Write-Host ""
-Write-Host "Installazione Archetipo in: $DEST" -ForegroundColor Green
-Write-Host "Backend backlog: $($selectedBackend.Name)" -ForegroundColor Green
-Write-Host ""
-
-if (-not (Test-Path $SKILLS_SRC)) {
-    Write-Error "Cartella skills backend mancante: $SKILLS_SRC"
-    exit 1
-}
-
-if ($selectedBackend.Key -eq "github") {
-    $backendArchetipoPath = Join-Path $DEST $selectedBackend.ArchetipoPath
-    $rootArchetipoPath = Join-Path $DEST ".archetipo"
-    if (Test-Path $backendArchetipoPath) {
-        Write-Host "Copia backend GitHub .archetipo → $rootArchetipoPath"
-        if (Test-Path $rootArchetipoPath) {
-            Remove-Item -Path $rootArchetipoPath -Recurse -Force
-        }
-        Copy-Item -Path $backendArchetipoPath -Destination $rootArchetipoPath -Recurse -Force
-    }
-} else {
-    $viewerSrc = Join-Path $DEST $selectedBackend.ViewerPath
-    $viewerDest = Join-Path $DEST (Split-Path $viewerSrc -Leaf)
-    if (-not (Test-Path $viewerSrc)) {
-        Write-Error "Cartella archetipo viewer mancante: $viewerSrc"
-        exit 1
-    }
-    Write-Host "Copia archetipo viewer → $viewerDest"
-    Copy-Item -Path $viewerSrc -Destination $viewerDest -Recurse -Force
-}
-
-foreach ($tool in $selectedTools) {
-    $skillsDest = Join-Path $DEST $tool.SkillsPath
-    Write-Host "Copia skills → $skillsDest  [$($tool.Name)]"
-    if (-not (Test-Path $skillsDest)) {
-        New-Item -ItemType Directory -Path $skillsDest -Force | Out-Null
-    }
-    foreach ($skillName in $ArchetipoSkills) {
-        $skillPath = Join-Path $SKILLS_SRC $skillName
-        if (-not (Test-Path $skillPath)) {
-            Write-Error "Skill mancante: $skillName"
-            exit 1
-        }
-        Copy-Item -Path $skillPath -Destination (Join-Path $skillsDest $skillName) -Recurse -Force
-    }
-}
-
-# --- Pulizia file di setup e reinit git ---
-
-Push-Location $DEST
+Push-Location $PROJECT_DIR
 try {
-    Write-Host "Pulizia file di setup..."
-    Remove-Item -Path (Join-Path $DEST "backend") -Recurse -Force -ErrorAction SilentlyContinue
-    if ($selectedBackend.Key -eq "file") {
-        Remove-Item -Path (Join-Path $DEST ".archetipo") -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    Remove-Item -Path (Join-Path $DEST "setup.ps1") -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path (Join-Path $DEST "setup.sh") -Force -ErrorAction SilentlyContinue
+    # --- Pulizia asset template obsoleti ---
+
+    Write-Host ""
+    Write-Host "Installazione Archetipo in: $((Get-Location).Path)" -ForegroundColor Green
+    Write-Host "Backend backlog: $($selectedBackend.Name)" -ForegroundColor Green
+    Write-Host ""
+
+    Write-Host "Pulizia asset template obsoleti..."
+    Remove-Item -Path "backend" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path ".archetipo" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "setup.ps1" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "setup.sh" -Force -ErrorAction SilentlyContinue
+
+    # --- Reinizializza git ---
 
     Write-Host "Reinizializzo la storia git..."
-    Remove-Item -Path (Join-Path $DEST ".git") -Recurse -Force
+    Remove-Item -Path ".git" -Recurse -Force
     git init -b main
 
     Write-Host "Imposto il remote origin: $REMOTE_URL"
     git remote add origin $REMOTE_URL
 
+    # --- Esegui archetipo init ---
+
+    $initArgs = @("init", "--connector", $selectedBackend.Key, "--yes")
+    foreach ($tool in $selectedTools) {
+        $initArgs += @("--tool", $tool.Key)
+    }
+
+    Write-Host ""
+    Write-Host "Eseguo archetipo init..."
+    Write-Host "  archetipo $($initArgs -join ' ')"
+    & archetipo $initArgs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "archetipo init fallito."
+        exit 1
+    }
+
+    # --- Per GitHub: archetipo config show ---
+
     if ($selectedBackend.Key -eq "github") {
-        node .archetipo/cli/archetipo.mjs setup-project
+        Write-Host ""
+        Write-Host "Configuro GitHub Project via archetipo config show..."
+        & archetipo config show
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Configurazione GitHub Project non completata."
+            Write-Error "archetipo config show fallito."
             exit 1
         }
     }
 
+    # --- Commit iniziale ---
+
+    Write-Host ""
+    Write-Host "Commit iniziale..."
     git add -A
     git commit -m "Initial commit from archetipo-workshop"
 

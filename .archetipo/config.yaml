@@ -1,4 +1,0 @@
-#only valid for github connector
-github:
-  # owner: auto-detected from repo
-  # project_number: auto-detected from repo

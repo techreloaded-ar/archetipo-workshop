@@ -8,8 +8,8 @@ Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usa
 
 Durante il setup puoi scegliere uno di questi backend per la gestione del backlog:
 
-- `File`: il backlog viene gestito su file nel progetto e viene copiato anche `archetipo-viewer`, un viewer locale per lavorare su `docs/BACKLOG.md`. Questo backend non inizializza GitHub Project e non scrive `.archetipo/config.yaml`.
-- `GitHub Projects`: il backlog viene gestito tramite GitHub Projects v2. Questo backend copia `.archetipo`, inizializza il project board e scrive `.archetipo/config.yaml`.
+- `File`: il backlog viene gestito su file locali (`.archetipo/backlog.yaml` e `.archetipo/plans/`). Puoi visualizzarlo con `archetipo view`. Genera `.archetipo/config.yaml` con `connector: file`.
+- `GitHub Projects`: il backlog viene gestito tramite GitHub Projects v2. `archetipo init` genera `.archetipo/config.yaml` e `archetipo config show` inizializza la board su GitHub.
 
 Scegli `File` se vuoi un flusso locale e semplice. Scegli `GitHub Projects` se vuoi backlog, status e sub-issue integrate in GitHub.
 
@@ -19,6 +19,12 @@ Scegli `File` se vuoi un flusso locale e semplice. Scegli `GitHub Projects` se v
 - **Git** installato
 - Un account **GitHub** per repository e login OAuth
 - Un account **Supabase** gratuito ([supabase.com](https://supabase.com))
+
+Lo script di setup installa automaticamente la CLI globale **Archetipo** (`@techreloaded/archetipo`) se non e' gia' presente. Se preferisci installarla manualmente:
+
+```bash
+npm install -g @techreloaded/archetipo
+```
 
 ### Prerequisiti aggiuntivi per `GitHub Projects`
 
@@ -65,32 +71,34 @@ Al termine entra nella cartella del progetto:
 cd nome-cartella-progetto
 ```
 
+#### Per entrambi i backend
+
+Il setup esegue `archetipo init --connector <file|github> --tool <strumento>... --yes` che:
+
+- installa le skill ufficiali di Archetipo nei tool AI selezionati;
+- crea `.archetipo/config.yaml` con il connector scelto;
+- crea `.archetipo/shared-runtime.md`.
+
 #### Se hai scelto `File`
 
-Il setup:
+Dopo `archetipo init`, il backlog sara' gestito su file locali:
 
-- copia le skill da `backend/file/skills` negli strumenti selezionati;
-- copia `archetipo-viewer/` nella root del progetto;
-- non esegue l'inizializzazione di GitHub Projects;
-- non genera `.archetipo/config.yaml`.
+- `.archetipo/backlog.yaml` — backlog del progetto
+- `.archetipo/plans/` — piani di implementazione
 
-Per usare il viewer backlog:
+Per visualizzare il backlog in locale:
 
-1. Apri `archetipo-viewer/index.html` in Chrome o Edge.
-2. Premi `Apri progetto`.
-3. Seleziona la root del progetto.
-
-Il viewer leggerà `docs/BACKLOG.md` e, quando presenti, i file in `docs/planning/`.
+```bash
+archetipo view
+```
 
 #### Se hai scelto `GitHub Projects`
 
-Il setup:
+Dopo `archetipo init`, il setup esegue anche `archetipo config show` che:
 
-- copia le skill da `backend/github/skills` negli strumenti selezionati;
-- copia `.archetipo/` nella root del progetto;
-- esegue `node .archetipo/cli/archetipo.mjs setup-project`;
-- crea e configura il GitHub Project;
-- scrive `.archetipo/config.yaml`.
+- rileva owner e nome del repository;
+- crea/configura il GitHub Project v2;
+- salva i metadati in `.archetipo/config.yaml`.
 
 ---
 
@@ -169,13 +177,16 @@ Apri [http://localhost:3000](http://localhost:3000) nel browser.
 
 ### Non trovo `.archetipo/config.yaml`
 
-- Se hai scelto il backend `File`, e' normale: quel backend non usa GitHub Projects e non genera `config.yaml`.
-- Se hai scelto `GitHub Projects`, rilancia il setup e verifica che `gh auth login` e `gh auth refresh -s read:project -s project` siano andati a buon fine.
+- Il file `.archetipo/config.yaml` viene generato da `archetipo init` per entrambi i backend.
+- Se manca, verifica che `archetipo init` sia stato eseguito correttamente.
+- Se hai scelto `GitHub Projects`, verifica anche che `gh auth login` e `gh auth refresh -s read:project -s project` siano andati a buon fine.
 
-### Non trovo `archetipo-viewer/`
+### `archetipo` non viene trovato dopo l'installazione
 
-- `archetipo-viewer/` viene copiato solo se hai scelto il backend `File`.
-- Se hai scelto `GitHub Projects`, la sua assenza e' corretta.
+- L'installazione globale di npm potrebbe non essere nel PATH.
+- Su macOS/Linux: `export PATH="$(npm config get prefix)/bin:$PATH"`
+- Su Windows: aggiungi la cartella bin di npm al PATH di sistema.
+- In alternativa, installa con un node version manager come `nvm` o `fnm`.
 
 ### "Invalid API key" o errori di autenticazione
 
