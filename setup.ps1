@@ -168,19 +168,35 @@ if ($selectedBackend.Key -eq "github") {
         exit 1
     }
 
-    & gh auth status > $null 2> $null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "GitHub CLI non e' autenticata. Esegui: gh auth login`nPoi: gh auth refresh -s read:project -s project"
-        exit 1
-    }
-
     Write-Host ""
-    Write-Host "Verifica scope GitHub Projects..." -ForegroundColor Yellow
-    & gh project list --limit 1 --format json > $null 2> $null
+    Write-Host "Verifica autenticazione e scope GitHub Projects..." -ForegroundColor Yellow
+    $ghApiOutput = & gh api -i user 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Mancano gli scope per GitHub Projects v2. Esegui: gh auth refresh -s read:project -s project"
+        Write-Host ""
+        Write-Host "ERRORE: GitHub CLI non e' autenticata. Esegui:" -ForegroundColor Red
+        Write-Host "  gh auth login" -ForegroundColor Cyan
+        Write-Host "  gh auth refresh -s read:project -s project" -ForegroundColor Cyan
+        Write-Host "Poi RILANCIA questo script di installazione." -ForegroundColor Yellow
         exit 1
     }
+    $scopeLine = ($ghApiOutput | Where-Object { $_ -match '^X-Oauth-Scopes:' }) | Select-Object -First 1
+    if ($scopeLine) {
+        $scopes = $scopeLine -replace '^X-Oauth-Scopes:\s*', ''
+        $hasWriteProject = ($scopes -split ',\s*') | Where-Object { $_.Trim() -eq 'project' }
+        if (-not $hasWriteProject) {
+            Write-Host ""
+            Write-Host "ERRORE: Il token GitHub non ha lo scope di scrittura 'project', necessario per creare il GitHub Project v2." -ForegroundColor Red
+            Write-Host "(Lo scope attuale consente solo la lettura: la creazione del progetto fallirebbe.)" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "Esegui:" -ForegroundColor Yellow
+            Write-Host "  gh auth refresh -s read:project -s project" -ForegroundColor Cyan
+            Write-Host "Verifica con quale account sei autenticato (se ne hai piu' di uno):" -ForegroundColor Yellow
+            Write-Host "  gh auth status        # eventualmente: gh auth switch" -ForegroundColor Cyan
+            Write-Host "Poi RILANCIA questo script di installazione." -ForegroundColor Yellow
+            exit 1
+        }
+    }
+    # Se l'header non e' leggibile si prosegue (rete di sicurezza)
 }
 
 # --- Selezione strumenti ---
@@ -252,7 +268,21 @@ try {
         Write-Host "Configuro GitHub Project via archetipo config show..."
         & archetipo config show
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "archetipo config show fallito."
+            Write-Host ""
+            Write-Host "ERRORE: archetipo config show fallito." -ForegroundColor Red
+            Write-Host "Causa probabile: token senza scope 'project' oppure account senza permessi sull'owner di destinazione." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "Comandi di diagnosi/fix:" -ForegroundColor Yellow
+            Write-Host "  gh auth status" -ForegroundColor Cyan
+            Write-Host "  gh auth refresh -s read:project -s project   # eventuale: gh auth switch" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "Il progetto e' gia' stato inizializzato. NON rilancia lo script." -ForegroundColor Yellow
+            Write-Host "Riprendi dall'interno della cartella progetto:" -ForegroundColor Yellow
+            Write-Host "  cd $PROJECT_DIR" -ForegroundColor Cyan
+            Write-Host "  archetipo config show" -ForegroundColor Cyan
+            Write-Host "  git add -A" -ForegroundColor Cyan
+            Write-Host "  git commit -m ""Initial commit from archetipo-workshop""" -ForegroundColor Cyan
+            Write-Host "  git push -u origin main" -ForegroundColor Cyan
             exit 1
         }
     }

@@ -186,20 +186,33 @@ if [ "$SELECTED_BACKEND_KEY" = "github" ]; then
         exit 1
     fi
 
-    if ! gh auth status &> /dev/null; then
-        echo "Errore: GitHub CLI non e' autenticata."
-        echo "Esegui: gh auth login"
-        echo "Poi: gh auth refresh -s read:project -s project"
-        exit 1
-    fi
-
     echo ""
-    echo -e "\033[33mVerifica scope GitHub Projects...\033[0m"
-    if ! gh project list --limit 1 --format json &> /dev/null; then
-        echo "Errore: mancano gli scope per GitHub Projects v2."
-        echo "Esegui: gh auth refresh -s read:project -s project"
+    echo -e "\033[33mVerifica autenticazione e scope GitHub Projects...\033[0m"
+    if ! GH_API_OUTPUT=$(gh api -i user 2>&1); then
+        echo ""
+        echo -e "\033[31mERRORE: GitHub CLI non e' autenticata. Esegui:\033[0m"
+        echo -e "  \033[36mgh auth login\033[0m"
+        echo -e "  \033[36mgh auth refresh -s read:project -s project\033[0m"
+        echo -e "\033[33mPoi RILANCIA questo script di installazione.\033[0m"
         exit 1
     fi
+    SCOPE_LINE=$(echo "$GH_API_OUTPUT" | grep -i '^x-oauth-scopes:' | head -1)
+    if [ -n "$SCOPE_LINE" ]; then
+        SCOPES=$(echo "$SCOPE_LINE" | sed 's/^[Xx]-[Oo]auth-[Ss]copes:[[:space:]]*//')
+        if ! echo "$SCOPES" | tr ',' '\n' | sed 's/^[[:space:]]*//' | grep -qx 'project'; then
+            echo ""
+            echo -e "\033[31mERRORE: Il token GitHub non ha lo scope di scrittura 'project', necessario per creare il GitHub Project v2.\033[0m"
+            echo -e "\033[31m(Lo scope attuale consente solo la lettura: la creazione del progetto fallirebbe.)\033[0m"
+            echo ""
+            echo -e "\033[33mEsegui:\033[0m"
+            echo -e "  \033[36mgh auth refresh -s read:project -s project\033[0m"
+            echo -e "\033[33mVerifica con quale account sei autenticato (se ne hai piu' di uno):\033[0m"
+            echo -e "  \033[36mgh auth status        # eventualmente: gh auth switch\033[0m"
+            echo -e "\033[33mPoi RILANCIA questo script di installazione.\033[0m"
+            exit 1
+        fi
+    fi
+    # Se l'header non e' leggibile si prosegue (rete di sicurezza)
 fi
 
 # --- Selezione strumenti ---
@@ -261,7 +274,24 @@ $ARCHETIPO_BIN "${ARCHETIPO_INIT_ARGS[@]}"
 if [ "$SELECTED_BACKEND_KEY" = "github" ]; then
     echo ""
     echo "Configuro GitHub Project via archetipo config show..."
-    $ARCHETIPO_BIN config show
+    if ! $ARCHETIPO_BIN config show; then
+        echo ""
+        echo -e "\033[31mERRORE: archetipo config show fallito.\033[0m"
+        echo -e "\033[33mCausa probabile: token senza scope 'project' oppure account senza permessi sull'owner di destinazione.\033[0m"
+        echo ""
+        echo -e "\033[33mComandi di diagnosi/fix:\033[0m"
+        echo -e "  \033[36mgh auth status\033[0m"
+        echo -e "  \033[36mgh auth refresh -s read:project -s project   # eventuale: gh auth switch\033[0m"
+        echo ""
+        echo -e "\033[33mIl progetto e' gia' stato inizializzato. NON rilancia lo script.\033[0m"
+        echo -e "\033[33mRiprendi dall'interno della cartella progetto:\033[0m"
+        echo -e "  \033[36mcd $PROJECT_DIR\033[0m"
+        echo -e "  \033[36marchetipo config show\033[0m"
+        echo -e "  \033[36mgit add -A\033[0m"
+        echo -e "  \033[36mgit commit -m \"Initial commit from archetipo-workshop\"\033[0m"
+        echo -e "  \033[36mgit push -u origin main\033[0m"
+        exit 1
+    fi
 fi
 
 # --- Commit iniziale ---
