@@ -63,7 +63,12 @@ Lo script ti chiederà:
 1. nome della cartella del progetto;
 2. URL del repository remoto;
 3. backend backlog: `File` oppure `GitHub Projects`;
-4. strumenti AI su cui installare le skill di Archetipo.
+4. strumenti AI sui quali installare le skill ufficiali di Archetipo tramite CLI.
+
+Il setup si occuperà di:
+
+- installare le skill ufficiali di ARchetipo nei tool AI selezionati;
+- creare `.archetipo/config.yaml` con la configurazione del backend scelto;
 
 Al termine entra nella cartella del progetto:
 
@@ -71,13 +76,7 @@ Al termine entra nella cartella del progetto:
 cd nome-cartella-progetto
 ```
 
-#### Per entrambi i backend
-
-Il setup esegue `archetipo init --connector <file|github> --tool <strumento>... --yes` che:
-
-- installa le skill ufficiali di Archetipo nei tool AI selezionati;
-- crea `.archetipo/config.yaml` con il connector scelto;
-- crea `.archetipo/shared-runtime.md`.
+#### Differenze fra i backend
 
 #### Se hai scelto `File`
 
@@ -94,7 +93,7 @@ archetipo view
 
 #### Se hai scelto `GitHub Projects`
 
-Dopo `archetipo init`, il setup esegue anche `archetipo config show` che:
+Il setup avrà eseguito anche `archetipo config show` che:
 
 - rileva owner e nome del repository;
 - crea/configura il GitHub Project v2;
@@ -173,7 +172,7 @@ Apri [http://localhost:3000](http://localhost:3000) nel browser.
 - Questo controllo vale solo se hai scelto il backend `GitHub Projects`.
 - Verifica l'autenticazione con `gh auth status`.
 - Esegui `gh auth refresh -s read:project -s project`.
-- Rilancia lo script di setup.
+- Se l'errore arriva dopo `archetipo init`, non rilanciare lo script: entra nella cartella del progetto ed esegui `archetipo config show`, poi completa `git add -A`, commit e push.
 
 ### Non trovo `.archetipo/config.yaml`
 
