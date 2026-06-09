@@ -231,15 +231,15 @@ try {
 
     # --- Esegui archetipo init ---
 
-    $initArgs = @("init", "--connector", $selectedBackend.Key, "--yes")
+    $toolFlatArgs = @()
     foreach ($tool in $selectedTools) {
-        $initArgs += @("--tool", $tool.Key)
+        $toolFlatArgs += @("--tool", $tool.Key)
     }
 
     Write-Host ""
     Write-Host "Eseguo archetipo init..."
-    Write-Host "  archetipo $($initArgs -join ' ')"
-    & archetipo $initArgs
+    Write-Host "  archetipo init --connector $($selectedBackend.Key) --yes $($toolFlatArgs -join ' ')"
+    & archetipo init --connector $selectedBackend.Key --yes @toolFlatArgs
     if ($LASTEXITCODE -ne 0) {
         Write-Error "archetipo init fallito."
         exit 1
