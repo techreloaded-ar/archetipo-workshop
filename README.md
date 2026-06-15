@@ -2,49 +2,9 @@
 
 Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usando l'AI come copilota e il framework [Archetipo](https://github.com/techreloaded-ar/archetipo) come guida metodologica. Il boilerplate di partenza include Next.js 15, Supabase per auth e storage, Prisma, Tailwind CSS v4 e shadcn/ui: tutto già configurato per permetterti di concentrarti sul prodotto, non sull'infrastruttura.
 
-## Guida Setup
+## 🚀 Installazione Rapida
 
-### Backend backlog disponibili
-
-Durante il setup puoi scegliere uno di questi backend per la gestione del backlog:
-
-- `File`: il backlog viene gestito su file locali (`.archetipo/backlog.yaml` e `.archetipo/plans/`). Puoi visualizzarlo con `archetipo view`. Genera `.archetipo/config.yaml` con `connector: file`.
-- `GitHub Projects`: il backlog viene gestito tramite GitHub Projects v2. `archetipo init` genera `.archetipo/config.yaml` e `archetipo config show` inizializza la board su GitHub.
-
-Scegli `File` se vuoi un flusso locale e semplice. Scegli `GitHub Projects` se vuoi backlog, status e sub-issue integrate in GitHub.
-
-### Prerequisiti comuni
-
-- **Node.js** v18+ installato ([nodejs.org](https://nodejs.org))
-- **Git** installato
-- Un account **GitHub** per repository e login OAuth
-- Un account **Supabase** gratuito ([supabase.com](https://supabase.com))
-
-Lo script di setup installa automaticamente la CLI globale **Archetipo** (`@techreloaded/archetipo`) se non e' gia' presente. Se preferisci installarla manualmente:
-
-```bash
-npm install -g @techreloaded/archetipo
-```
-
-### Prerequisiti aggiuntivi per `GitHub Projects`
-
-- **GitHub CLI** installata ([cli.github.com](https://cli.github.com))
-- Permessi GitHub Projects v2 attivi sulla CLI
-
-Autentica GitHub CLI prima di lanciare lo script se intendi scegliere il backend `GitHub Projects`:
-
-```bash
-gh auth login
-gh auth refresh -s read:project -s project
-```
-
-`gh auth login` autentica la CLI. `gh auth refresh -s read:project -s project` abilita gli scope necessari a GitHub Projects v2, che Archetipo usa per creare e aggiornare il backlog.
-
----
-
-### 1. Installa Archetipo Workshop
-
-Crea prima un repository GitHub vuoto, senza README iniziale, e copia il suo URL remoto. Poi apri un terminale in una cartella a piacere e lancia lo script per il tuo sistema operativo.
+Esegui lo script di setup per il tuo sistema operativo. **Lo script fa tutto in automatico** — installa la CLI Archetipo, esegue `archetipo init`, configura il backlog e le skill.
 
 **macOS / Linux**
 
@@ -63,12 +23,8 @@ Lo script ti chiederà:
 1. nome della cartella del progetto;
 2. URL del repository remoto;
 3. backend backlog: `File` oppure `GitHub Projects`;
-4. strumenti AI sui quali installare le skill ufficiali di Archetipo tramite CLI.
+4. strumenti AI sui quali installare le skill ufficiali di Archetipo.
 
-Il setup si occuperà di:
-
-- installare le skill ufficiali di ARchetipo nei tool AI selezionati;
-- creare `.archetipo/config.yaml` con la configurazione del backend scelto;
 
 Al termine entra nella cartella del progetto:
 
@@ -76,32 +32,45 @@ Al termine entra nella cartella del progetto:
 cd nome-cartella-progetto
 ```
 
-#### Differenze fra i backend
+Poi prosegui con la [Guida Setup](#guida-setup) qui sotto per completare la configurazione (Supabase, variabili d'ambiente, dipendenze).
 
-#### Se hai scelto `File`
+## Guida Setup
 
-Dopo `archetipo init`, il backlog sara' gestito su file locali:
+### Backend backlog disponibili
 
-- `.archetipo/backlog.yaml` — backlog del progetto
-- `.archetipo/plans/` — piani di implementazione
+Durante il setup puoi scegliere uno di questi backend per la gestione del backlog:
 
-Per visualizzare il backlog in locale:
+- `File`: il backlog viene gestito su file locali (`.archetipo/backlog.yaml` e `.archetipo/plans/`). Puoi visualizzarlo con `archetipo view`. Genera `.archetipo/config.yaml` con `connector: file`.
+- `GitHub Projects`: il backlog viene gestito tramite GitHub Projects v2. `archetipo init` genera `.archetipo/config.yaml` e `archetipo config show` inizializza la board su GitHub.
+
+Scegli `File` se vuoi un flusso locale e semplice. Scegli `GitHub Projects` se vuoi backlog, status e sub-issue integrate in GitHub.
+
+### Prerequisiti comuni
+
+- **Node.js** v18+ installato ([nodejs.org](https://nodejs.org))
+- **Git** installato
+- Un account **GitHub** per repository e login OAuth
+- Un account **Supabase** gratuito ([supabase.com](https://supabase.com))
+
+
+### Prerequisiti aggiuntivi per `GitHub Projects`
+
+- **GitHub CLI** installata ([cli.github.com](https://cli.github.com))
+- Permessi GitHub Projects v2 attivi sulla CLI
+
+Autentica GitHub CLI prima di lanciare lo script se intendi scegliere il backend `GitHub Projects`:
 
 ```bash
-archetipo view
+gh auth login
+gh auth refresh -s read:project -s project
 ```
 
-#### Se hai scelto `GitHub Projects`
-
-Il setup avrà eseguito anche `archetipo config show` che:
-
-- rileva owner e nome del repository;
-- crea/configura il GitHub Project v2;
-- salva i metadati in `.archetipo/config.yaml`.
+`gh auth login` autentica la CLI. `gh auth refresh -s read:project -s project` abilita gli scope necessari a GitHub Projects v2, che Archetipo usa per creare e aggiornare il backlog.
 
 ---
 
-### 2. Crea un progetto Supabase
+
+### 1. Crea un progetto Supabase
 
 1. Vai su [supabase.com](https://supabase.com) e fai login.
 2. Clicca **New Project**.
@@ -111,7 +80,7 @@ Il setup avrà eseguito anche `archetipo config show` che:
 
 ---
 
-### 3. Configura le variabili d'ambiente
+### 2. Configura le variabili d'ambiente
 
 Copia il file di esempio:
 
@@ -137,7 +106,7 @@ Nella connection string sostituisci `[YOUR-PASSWORD]` con la password scelta qua
 
 ---
 
-### 4. Installa le dipendenze
+### 3. Installa le dipendenze
 
 ```bash
 npm install
@@ -147,7 +116,7 @@ Durante `npm install` viene eseguito anche `postinstall`, che genera il Prisma C
 
 ---
 
-### 5. Avvia il server di sviluppo
+### 4. Avvia il server di sviluppo
 
 ```bash
 npm run dev
@@ -157,7 +126,7 @@ Apri [http://localhost:3000](http://localhost:3000) nel browser.
 
 ---
 
-### 6. Testa il login OAuth
+### 5. Testa il login OAuth
 
 1. Vai su [http://localhost:3000/auth/signin](http://localhost:3000/auth/signin).
 2. Registrati e completa il flusso OAuth.
