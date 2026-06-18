@@ -9,6 +9,8 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 prisma/migrations
+prisma/*.db
+prisma/*.db-journal
 .vercel
 *.tsbuildinfo
 .claude/

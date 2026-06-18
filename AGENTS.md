@@ -2,8 +2,7 @@
 
 ## Stack
 - **Next.js 15** (App Router, `src/` directory, Turbopack dev)
-- **Supabase** for auth (OAuth via GitHub & Google managed providers) and storage
-- **Prisma** for database access (connected to Supabase PostgreSQL)
+- **SQLite** via **Prisma** per il database; auth custom email/password (sessioni su DB, cookie httpOnly) — niente servizi esterni.
 - **Tailwind CSS v4** with `@tailwindcss/postcss`
 - **shadcn/ui** for UI components
 
@@ -18,22 +17,21 @@ src/
     dashboard/
       page.tsx          # Protected page (middleware guards)
     auth/
-      signin/page.tsx   # Sign-in page (GitHub + Google OAuth)
-      callback/route.ts # OAuth callback handler + Prisma user sync
+      signin/page.tsx   # Sign-in page (email/password)
       signout/route.ts  # POST handler for sign out
     api/
       hello/route.ts    # Example API route (GET + POST)
+      auth/
+        signup/route.ts # POST handler for sign up
+        signin/route.ts # POST handler for sign in
   components/ui/        # shadcn/ui components
   lib/
     utils.ts            # cn() utility (shadcn)
     prisma.ts           # Prisma client singleton
-    supabase/
-      client.ts         # Browser Supabase client
-      server.ts         # Server Supabase client (cookies)
-      middleware.ts      # Session refresh helper
-  middleware.ts          # Protects /dashboard, refreshes session
+    auth.ts              # hashPassword, verifyPassword, createSession, getCurrentUser, destroySession
+  middleware.ts          # Protects /dashboard checking the "session" cookie
 prisma/
-  schema.prisma         # User model (UUID, supabaseId, email, name, image)
+  schema.prisma         # User model (id, email, passwordHash, name, image) + Session model
 ```
 
 ## Common Tasks
@@ -56,44 +54,20 @@ const users = await prisma.user.findMany();
 
 ### Auth Patterns
 
-**Server Component** (recommended):
+**Server Component / Route Handler**:
 ```ts
-import { createClient } from "@/lib/supabase/server";
-const supabase = await createClient();
-const { data: { user } } = await supabase.auth.getUser();
+import { getCurrentUser } from "@/lib/auth";
+const user = await getCurrentUser(); // User | null
 ```
 
-**Client Component**:
-```ts
-import { createClient } from "@/lib/supabase/client";
-const supabase = createClient();
-const { data: { user } } = await supabase.auth.getUser();
-```
+**Sign up / Sign in**: i client chiamano via `fetch` i route handler `POST /api/auth/signup` e
+`POST /api/auth/signin` con `{ email, password }`. Entrambi creano la sessione su DB e impostano
+il cookie httpOnly `session` tramite `createSession()`.
 
-**Sign in with OAuth** (client-side):
-```ts
-const supabase = createClient();
-await supabase.auth.signInWithOAuth({
-  provider: "github", // or "google"
-  options: { redirectTo: `${window.location.origin}/auth/callback` },
-});
-```
-
-**User sync**: On OAuth callback, the user is automatically synced to Prisma via `prisma.user.upsert()` using `supabaseId` as the key. This keeps the `User` table in sync with Supabase Auth.
-
-### Supabase Storage
-```ts
-const supabase = createClient(); // or await createClient() on server
-const { data } = await supabase.storage.from("bucket").upload("path", file);
-```
+**Sign out**: `destroySession()` elimina la sessione corrente dal DB e cancella il cookie.
 
 ## Environment Variables
-- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — Supabase publishable key
-- `DATABASE_URL` — Supabase PostgreSQL connection string (for Prisma)
-  - Go to **Supabase Dashboard → Project Settings → Database → Connection string**
-  - Select **Session Pooler** as connection method (not Direct — incompatible with IPv4)
-  - Copy the connection string
+- `DATABASE_URL` — connection string SQLite (es. `file:./dev.db`)
 
 ## Archetipo Skills — Boilerplate Constraints
 
@@ -105,8 +79,7 @@ When Leonardo (Architect) proposes the technical architecture:
 
 - **Mandate the existing stack** — the base technology choices are not up for discussion:
   - Next.js 15 (App Router, `src/` directory, Turbopack dev)
-  - Supabase (auth via GitHub & Google OAuth + storage)
-  - Prisma (PostgreSQL, connected to Supabase)
+  - SQLite via Prisma + auth custom email/password
   - Tailwind CSS v4 with `@tailwindcss/postcss`
   - shadcn/ui for UI components
 - **Explain why** when presenting the stack: *"This project uses an existing boilerplate with auth, database, and UI already configured. Rebuilding would waste time and introduce inconsistencies."*
@@ -117,12 +90,9 @@ When Leonardo (Architect) proposes the technical architecture:
 
 The following features are **already implemented** in the boilerplate. Agents must not generate functional requirements or user stories that recreate them:
 
-- Email/password authentication (sign up, sign in, email verification)
-- OAuth sign-in (GitHub & Google) with callback handling
-- OAuth callback → Prisma user sync (`prisma.user.upsert` by `supabaseId`)
-- Session management middleware (auto-refresh, route protection for `/dashboard`)
-- Server-side and client-side Supabase client helpers (`@/lib/supabase/server`, `@/lib/supabase/client`)
-- User model (`UUID`, `supabaseId`, `email`, `name`, `image`)
+- Email/password authentication (sign up, sign in)
+- Session management middleware checking the "session" cookie (route protection for `/dashboard`)
+- User model (`UUID`, `email`, `passwordHash`, `name`, `image`) + `Session` model
 - Dashboard page (protected, displays user profile)
 - Home page with auth-aware content
 - shadcn/ui integration + Tailwind design tokens (`globals.css`)

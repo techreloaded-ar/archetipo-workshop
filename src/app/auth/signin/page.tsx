@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,49 +19,32 @@ export default function SignIn() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setMessage(null);
 
-    const supabase = createClient();
-
-    if (isSignUp) {
-      if (password !== confirmPassword) {
-        setError("Le password non coincidono.");
-        setLoading(false);
-        return;
-      }
-
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        setMessage("Controlla la tua email per confermare la registrazione.");
-      }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        window.location.href = "/dashboard";
-      }
+    if (isSignUp && password !== confirmPassword) {
+      setError("Le password non coincidono.");
+      setLoading(false);
+      return;
     }
 
+    const endpoint = isSignUp ? "/api/auth/signup" : "/api/auth/signin";
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (res.ok) {
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    setError(data.error ?? "Si e' verificato un errore. Riprova.");
     setLoading(false);
   };
 
@@ -120,12 +102,7 @@ export default function SignIn() {
               </div>
             )}
 
-            {error && (
-              <p className="text-destructive text-sm">{error}</p>
-            )}
-            {message && (
-              <p className="text-sm text-green-600">{message}</p>
-            )}
+            {error && <p className="text-destructive text-sm">{error}</p>}
 
             <Button type="submit" disabled={loading} className="w-full">
               {loading
@@ -143,7 +120,6 @@ export default function SignIn() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError(null);
-                setMessage(null);
                 setConfirmPassword("");
               }}
               className="text-primary underline underline-offset-4"

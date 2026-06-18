@@ -1,6 +1,6 @@
 # Archetipo Workshop
 
-Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usando l'AI come copilota e il framework [Archetipo](https://github.com/techreloaded-ar/archetipo) come guida metodologica. Il boilerplate di partenza include Next.js 15, Supabase per auth e storage, Prisma, Tailwind CSS v4 e shadcn/ui: tutto già configurato per permetterti di concentrarti sul prodotto, non sull'infrastruttura.
+Questo è un workshop pratico in cui costruirai un prodotto digitale da zero usando l'AI come copilota e il framework [Archetipo](https://github.com/techreloaded-ar/archetipo) come guida metodologica. Il boilerplate di partenza include Next.js 15, SQLite via Prisma con auth email/password integrata, Tailwind CSS v4 e shadcn/ui: tutto già configurato per permetterti di concentrarti sul prodotto, non sull'infrastruttura.
 
 ## 🚀 Installazione Rapida
 
@@ -21,9 +21,7 @@ irm https://raw.githubusercontent.com/techreloaded-ar/archetipo-workshop/main/se
 Lo script ti chiederà:
 
 1. nome della cartella del progetto;
-2. URL del repository remoto;
-3. backend backlog: `File` oppure `GitHub Projects`;
-4. strumenti AI sui quali installare le skill ufficiali di Archetipo.
+2. strumenti AI sui quali installare le skill ufficiali di Archetipo.
 
 
 Al termine entra nella cartella del progetto:
@@ -32,81 +30,35 @@ Al termine entra nella cartella del progetto:
 cd nome-cartella-progetto
 ```
 
-Poi prosegui con la [Guida Setup](#guida-setup) qui sotto per completare la configurazione (Supabase, variabili d'ambiente, dipendenze).
+Poi prosegui con la [Guida Setup](#guida-setup) qui sotto per completare la configurazione (variabili d'ambiente, dipendenze).
 
 ## Guida Setup
 
 ### Backend backlog disponibili
 
-Durante il setup puoi scegliere uno di questi backend per la gestione del backlog:
-
-- `File`: il backlog viene gestito su file locali (`.archetipo/backlog.yaml` e `.archetipo/plans/`). Puoi visualizzarlo con `archetipo view`. Genera `.archetipo/config.yaml` con `connector: file`.
-- `GitHub Projects`: il backlog viene gestito tramite GitHub Projects v2. `archetipo init` genera `.archetipo/config.yaml` e `archetipo config show` inizializza la board su GitHub.
-
-Scegli `File` se vuoi un flusso locale e semplice. Scegli `GitHub Projects` se vuoi backlog, status e sub-issue integrate in GitHub.
+Il backlog è gestito su file locali (`.archetipo/`). Lo script configura automaticamente `connector: file`.
 
 ### Prerequisiti comuni
 
 - **Node.js** v18+ installato ([nodejs.org](https://nodejs.org))
 - **Git** installato
-- Un account **GitHub** per repository e login OAuth
-- Un account **Supabase** gratuito ([supabase.com](https://supabase.com))
-
-
-### Prerequisiti aggiuntivi per `GitHub Projects`
-
-- **GitHub CLI** installata ([cli.github.com](https://cli.github.com))
-- Permessi GitHub Projects v2 attivi sulla CLI
-
-Autentica GitHub CLI prima di lanciare lo script se intendi scegliere il backend `GitHub Projects`:
-
-```bash
-gh auth login
-gh auth refresh -s read:project -s project
-```
-
-`gh auth login` autentica la CLI. `gh auth refresh -s read:project -s project` abilita gli scope necessari a GitHub Projects v2, che Archetipo usa per creare e aggiornare il backlog.
 
 ---
 
+### 1. Configura le variabili d'ambiente
 
-### 1. Crea un progetto Supabase
-
-1. Vai su [supabase.com](https://supabase.com) e fai login.
-2. Clicca **New Project**.
-3. Scegli nome, password del database e region.
-4. Salva la password del database.
-5. Aspetta che il progetto sia pronto.
-
----
-
-### 2. Configura le variabili d'ambiente
-
-Copia il file di esempio:
+Copia il file di esempio (già pronto per SQLite, nessun servizio esterno):
 
 ```bash
 cp .env.example .env
 ```
 
-Compila `.env` con i valori del tuo progetto Supabase:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-DATABASE_URL=
-```
-
-Per trovare i valori:
-
-- clicca **Connect** nella top bar di Supabase;
-- nel tab **Frameworks**, seleziona **Next.js** e copia `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`;
-- net tab **Direct** scegli come metodo di connessione **Session Pooler** e copia la connection string `postgresql://...`
-
-Nella connection string sostituisci `[YOUR-PASSWORD]` con la password scelta quando hai creato il progetto.
+`.env` contiene solo `DATABASE_URL="file:./dev.db"`: il database SQLite viene creato
+automaticamente in `prisma/dev.db` durante `npm install`.
 
 ---
 
-### 3. Installa le dipendenze
+### 2. Installa le dipendenze
 
 ```bash
 npm install
@@ -116,7 +68,7 @@ Durante `npm install` viene eseguito anche `postinstall`, che genera il Prisma C
 
 ---
 
-### 4. Avvia il server di sviluppo
+### 3. Avvia il server di sviluppo
 
 ```bash
 npm run dev
@@ -126,28 +78,15 @@ Apri [http://localhost:3000](http://localhost:3000) nel browser.
 
 ---
 
-### 5. Testa il login OAuth
+### 4. Testa il login
 
 1. Vai su [http://localhost:3000/auth/signin](http://localhost:3000/auth/signin).
-2. Registrati e completa il flusso OAuth.
-3. Verifica di essere reindirizzato alla dashboard protetta.
+2. Registrati con email e password: vieni reindirizzato alla dashboard protetta.
+3. Rifai logout e login con le stesse credenziali.
 
 
 
 ## Troubleshooting
-
-### GitHub Project non viene creato
-
-- Questo controllo vale solo se hai scelto il backend `GitHub Projects`.
-- Verifica l'autenticazione con `gh auth status`.
-- Esegui `gh auth refresh -s read:project -s project`.
-- Se l'errore arriva dopo `archetipo init`, non rilanciare lo script: entra nella cartella del progetto ed esegui `archetipo config show`, poi completa `git add -A`, commit e push.
-
-### Non trovo `.archetipo/config.yaml`
-
-- Il file `.archetipo/config.yaml` viene generato da `archetipo init` per entrambi i backend.
-- Se manca, verifica che `archetipo init` sia stato eseguito correttamente.
-- Se hai scelto `GitHub Projects`, verifica anche che `gh auth login` e `gh auth refresh -s read:project -s project` siano andati a buon fine.
 
 ### `archetipo` non viene trovato dopo l'installazione
 
@@ -156,21 +95,10 @@ Apri [http://localhost:3000](http://localhost:3000) nel browser.
 - Su Windows: aggiungi la cartella bin di npm al PATH di sistema.
 - In alternativa, installa con un node version manager come `nvm` o `fnm`.
 
-### "Invalid API key" o errori di autenticazione
-
-- Verifica che `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` siano corretti in `.env`.
-- Assicurati di non avere spazi extra nei valori.
-
 ### "Can't reach database server"
 
-- Verifica che `DATABASE_URL` sia corretto in `.env`.
-- Assicurati di aver sostituito `[YOUR-PASSWORD]` con la password reale del database.
-- Controlla di usare il **Session Pooler**.
-
-### Il login OAuth non funziona
-
-- Verifica che i provider GitHub e/o Google siano attivati in Supabase **Authentication -> Providers**.
-- Assicurati che il Redirect URL in Supabase includa `http://localhost:3000/auth/callback`.
+- Verifica che il file `.env` esista (`cp .env.example .env`).
+- Verifica che `DATABASE_URL="file:./dev.db"` sia presente in `.env`.
 
 ### Dopo `npm install` compare un errore Prisma
 
@@ -197,52 +125,25 @@ npm run build
 
 ### 3. Configura le variabili d'ambiente
 
-Prima di cliccare Deploy, aggiungi queste variabili nella sezione **Environment Variables**:
+Prima di cliccare Deploy, aggiungi questa variabile nella sezione **Environment Variables**:
 
 | Variabile | Valore |
 |---|---|
-| `DATABASE_URL` | Connection string PostgreSQL con Session Pooler |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del progetto Supabase |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Chiave pubblica Supabase |
+| `DATABASE_URL` | `file:./dev.db` |
+
+⚠️ SQLite usa il filesystem locale, che su Vercel (serverless) non è persistente: i dati vengono
+azzerati a ogni deploy/scale. Questa versione light è pensata per uso locale; per la produzione
+sostituisci `DATABASE_URL` con un database persistente (es. PostgreSQL o Turso/libSQL).
 
 ### 4. Clicca Deploy
 
 Vercel eseguirà build e deploy. Al termine riceverai un URL pubblico, per esempio `https://tuo-progetto.vercel.app`.
-
-### 5. Aggiorna i redirect OAuth
-
-Per far funzionare il login OAuth in produzione, aggiorna gli URL di redirect su Supabase e sui provider OAuth che usi.
-
-**Su Supabase:**
-
-1. Apri il [Supabase Dashboard](https://supabase.com/dashboard) e seleziona il tuo progetto.
-2. Vai su **Authentication -> URL Configuration**.
-3. Aggiungi il tuo URL Vercel alla lista dei **Redirect URLs**:
-
-   ```text
-   https://tuo-progetto.vercel.app/auth/callback
-   ```
-
-**Sul provider OAuth:**
-
-- **GitHub**: vai su [github.com/settings/developers](https://github.com/settings/developers), apri la tua OAuth App e aggiorna **Authorization callback URL** con `https://tuo-progetto.vercel.app/auth/callback`.
-- **Google**: vai sulla [Google Cloud Console](https://console.cloud.google.com/apis/credentials), apri il tuo OAuth Client e aggiungi `https://tuo-progetto.vercel.app/auth/callback` tra gli **Authorized redirect URIs**.
 
 ### Troubleshooting Deploy
 
 **Build fallisce con errore Prisma "Cannot find module"**
 
 - Vercel deve generare il Prisma Client durante il build. Verifica che `postinstall` in `package.json` includa `prisma generate`.
-
-**"Can't reach database server" in produzione**
-
-- Verifica che `DATABASE_URL` usi il Session Pooler.
-- Controlla che la password nella connection string sia corretta e non contenga il placeholder `[YOUR-PASSWORD]`.
-
-**OAuth login redirect non funziona**
-
-- Assicurati di aver aggiunto `https://tuo-progetto.vercel.app/auth/callback` nei Redirect URLs di Supabase.
-- Verifica che `NEXT_PUBLIC_SUPABASE_URL` sia configurata correttamente nelle env di Vercel.
 
 **Le modifiche alle variabili d'ambiente non hanno effetto**
 

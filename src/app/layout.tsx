@@ -8,7 +8,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Archetipo Workshop",
-  description: "Next.js + Supabase + Prisma + Tailwind",
+  description: "Next.js + SQLite + Prisma + Tailwind",
 };
 
 export default function RootLayout({

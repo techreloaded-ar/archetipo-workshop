@@ -1,8 +1,16 @@
-import { updateSession } from "@/lib/supabase/middleware";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+export function middleware(request: NextRequest) {
+  const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
+  const hasSession = request.cookies.has("session");
+
+  if (isDashboard && !hasSession) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/signin";
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
